@@ -1,0 +1,1832 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0c0b">
+<title>DMD Player</title>
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+:root {
+  --bg: #0e0c0b; --panel: #171412; --card: #1f1b18; --card-2: #29231f; --line: #352d27;
+  --ink: #f4ebe1; --ink-2: #c4b6a8; --ink-3: #8d7f72; --accent: #ff6a1a; --accent-2: #ff9a4d; --danger: #ff5a4a;
+  --font: "Chakra Petch", system-ui, sans-serif; --r: 14px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font: 15px/1.4 var(--font); overscroll-behavior: none; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+
+#app { display: grid; grid-template-columns: 1fr; gap: 0; min-height: 100vh; padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0); }
+#left { padding: 12px 14px 6px; }
+#right { padding: 6px 14px 28px; }
+@media (min-width: 900px) and (orientation: landscape) {
+  #app { grid-template-columns: minmax(520px, 1.25fr) 1fr; height: 100vh; }
+  #left { overflow: auto; padding: 18px 20px; border-right: 1px solid var(--line); }
+  #right { overflow: auto; padding: 18px 20px 30px; }
+}
+
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand canvas { width: 116px; height: 29px; display: block; border-radius: 4px; }
+.brand span { font-size: 12px; color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase; }
+
+/* the big display */
+.cabinet { position: relative; background: #000; border-radius: 16px; padding: 10px; box-shadow: inset 0 0 0 1px #2a2420, 0 10px 30px rgb(0 0 0 / .45); }
+.cabinet::before { content: ""; position: absolute; inset: 4px; border-radius: 12px; border: 1px solid #1d1916; pointer-events: none; }
+#hero { width: 100%; aspect-ratio: 4 / 1; display: block; border-radius: 6px; touch-action: manipulation; }
+.nowrow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 12px 2px 8px; }
+.nowrow h1 { margin: 0; font-size: 21px; font-weight: 600; line-height: 1.15; overflow-wrap: anywhere; }
+.nowrow .meta { font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
+
+.transport { display: flex; align-items: center; gap: 8px; }
+.ib { width: 46px; height: 46px; flex: none; border-radius: 50%; border: 0; background: var(--card); display: grid; place-items: center; }
+.ib svg { width: 22px; height: 22px; fill: currentColor; }
+.ib.big { width: 56px; height: 56px; background: var(--accent); color: #1a0d04; }
+.ib.big svg { width: 26px; height: 26px; }
+.ib:active { transform: scale(.96); }
+#scrub { flex: 1; min-width: 60px; accent-color: var(--accent); }
+.fcount { font-size: 12px; color: var(--ink-3); min-width: 54px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.rows { display: grid; gap: 10px; margin-top: 14px; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.row > label { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); width: 76px; flex: none; }
+.seg { display: inline-flex; background: var(--card); border-radius: 999px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: none; padding: 7px 12px; border-radius: 999px; font-size: 13.5px; font-weight: 500; color: var(--ink-2); min-height: 36px; }
+.seg button.on { background: var(--card-2); color: var(--ink); box-shadow: inset 0 0 0 1px #4a3e35; }
+.swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.sw { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; padding: 0; position: relative; }
+.sw.on { border-color: var(--ink); }
+.sw.kleur { background: conic-gradient(#ff3b30, #ffcc00, #34c759, #0a84ff, #bf5af2, #ff3b30); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.btn { border: 0; border-radius: 999px; padding: 10px 16px; min-height: 42px; background: var(--card); font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 7px; }
+.btn svg { width: 18px; height: 18px; fill: currentColor; }
+.btn.main { background: var(--accent); color: #1a0d04; }
+.btn.ghost { background: none; box-shadow: inset 0 0 0 1px var(--line); }
+.btn.danger { color: var(--danger); }
+.btn:disabled { opacity: .45; }
+
+/* library */
+.libhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0 12px; }
+.libhead h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.libhead h2 small { color: var(--ink-3); font-weight: 500; font-size: 14px; }
+#search { width: 100%; padding: 10px 14px; border-radius: 999px; border: 0; background: var(--card); margin-bottom: 12px; outline: none; }
+#search:focus { box-shadow: inset 0 0 0 2px #4a3e35; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.tile { background: var(--card); border-radius: 12px; padding: 7px 7px 9px; border: 0; text-align: left; display: block; width: 100%; }
+.tile.on { box-shadow: inset 0 0 0 2px var(--accent); }
+.tile canvas { width: 100%; aspect-ratio: 4 / 1; display: block; border-radius: 6px; background: #000; }
+.tile b { display: block; font-weight: 600; font-size: 13.5px; margin: 6px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile span { display: block; font-size: 11.5px; color: var(--ink-3); margin: 1px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.empty { color: var(--ink-3); padding: 18px 4px; }
+.tip { margin-top: 18px; padding: 12px 14px; background: var(--panel); border-radius: 12px; color: var(--ink-2); font-size: 13.5px; }
+.tip b { color: var(--ink); }
+
+/* sheets */
+.sheet { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0); }
+.sheet header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.sheet header h2 { margin: 0; font-size: 18px; font-weight: 600; flex: 1; }
+.sheet .body { flex: 1; overflow: auto; padding: 14px; max-width: 980px; width: 100%; margin: 0 auto; }
+.sheet footer { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid var(--line); background: var(--panel); }
+.progress { height: 8px; border-radius: 4px; background: var(--card); overflow: hidden; margin: 10px 0 6px; }
+.progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.found { display: grid; gap: 8px; }
+.sec { margin: 18px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.sec button { text-transform: none; letter-spacing: 0; font-size: 13px; }
+.cand { display: grid; grid-template-columns: 30px minmax(110px, 200px) 1fr; gap: 10px; align-items: center; background: var(--card); border-radius: 12px; padding: 8px 10px; }
+.cand input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--accent); }
+.cand canvas { width: 100%; aspect-ratio: 4 / 1; display: block; border-radius: 5px; background: #000; }
+.cand .nm { min-width: 0; }
+.cand .nm input { width: 100%; background: transparent; border: 0; border-bottom: 1px solid var(--line); padding: 3px 0; font-weight: 600; outline: none; }
+.cand .nm span { display: block; font-size: 12px; color: var(--ink-3); margin-top: 3px; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.thumb { position: relative; background: var(--card); border-radius: 10px; padding: 5px; }
+.thumb canvas { width: 100%; height: 64px; object-fit: contain; display: block; }
+.thumb input { position: absolute; top: 6px; left: 6px; width: 20px; height: 20px; accent-color: var(--accent); }
+.thumb span { display: block; font-size: 10.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
+.note { color: var(--ink-2); font-size: 13.5px; }
+.warn { color: var(--accent-2); font-size: 13px; }
+select { background: var(--card); border: 0; border-radius: 999px; padding: 8px 12px; }
+
+/* fullscreen */
+body.fs { overflow: hidden; }
+body.fs #fsview { display: flex; }
+#fsview { position: fixed; inset: 0; z-index: 60; background: #000; display: none; align-items: center; justify-content: center; }
+#fscv { width: 100vw; height: 100vh; display: block; }
+#fsbar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 10px; padding: 14px; background: linear-gradient(transparent, rgb(0 0 0 / .8)); transition: opacity .25s; }
+#fsbar.hide { opacity: 0; pointer-events: none; }
+#fsname { position: absolute; top: 12px; left: 16px; color: #fff; opacity: .7; font-size: 14px; transition: opacity .25s; }
+#fsname.hide { opacity: 0; }
+
+#toast { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0)); transform: translateX(-50%); background: #f4ebe1; color: #1a120c; padding: 10px 16px; border-radius: 999px; font-weight: 600; font-size: 14px; z-index: 90; box-shadow: 0 6px 20px rgb(0 0 0 / .4); max-width: calc(100vw - 32px); }
+dialog { background: var(--panel); color: var(--ink); border: 0; border-radius: 16px; padding: 18px; width: min(420px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgb(0 0 0 / .6); }
+dialog h3 { margin: 0 0 10px; font-size: 18px; }
+dialog input[type=text] { width: 100%; padding: 10px 12px; border-radius: 10px; border: 0; background: var(--card); outline: none; }
+dialog .actions { justify-content: flex-end; }
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="left">
+    <header class="top">
+      <div class="brand"><canvas id="logo" aria-label="DMD Player"></canvas><span>pinball animations</span></div>
+      <button class="btn main" id="importBtn"><svg viewBox="0 0 24 24"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7z"/></svg>Import</button>
+    </header>
+    <div class="cabinet"><canvas id="hero" title="Tap for full screen"></canvas></div>
+    <div class="nowrow"><h1 id="nowName">…</h1><span class="meta" id="nowMeta"></span></div>
+    <div class="transport">
+      <button class="ib" id="prevF" aria-label="Previous frame"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button class="ib big" id="playBtn" aria-label="Play"><svg viewBox="0 0 24 24"><path id="playIcon" d="M7 4l13 8-13 8z"/></svg></button>
+      <button class="ib" id="nextF" aria-label="Next frame"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Frame">
+      <span class="fcount" id="fcount">0/0</span>
+      <button class="ib" id="fsBtn" aria-label="Full screen"><svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/></svg></button>
+    </div>
+    <div class="rows">
+      <div class="row"><label>Speed</label><div class="seg" id="speedSeg"></div></div>
+      <div class="row"><label>Playback</label><div class="seg" id="modeSeg"></div></div>
+      <div class="row"><label>Colour</label><div class="swatches" id="tintSw"></div></div>
+      <div class="row"><label>Dots</label><div class="seg" id="shapeSeg"></div><div class="seg" id="glowSeg"></div></div>
+      <div class="row"><label>Shades</label><div class="seg" id="levelSeg"></div></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="gifBtn"><svg viewBox="0 0 24 24"><path d="M11 4h2v9.2l3.6-3.6 1.4 1.4-6 6-6-6 1.4-1.4 3.6 3.6zM5 18h14v2H5z"/></svg>Save GIF</button>
+      <button class="btn ghost" id="renameBtn">Rename</button>
+      <button class="btn ghost danger" id="delBtn">Delete</button>
+    </div>
+  </section>
+  <section id="right">
+    <div class="libhead"><h2>Library <small id="libCount"></small></h2></div>
+    <input id="search" type="search" placeholder="Search…" autocomplete="off">
+    <div class="grid" id="grid"></div>
+    <div class="tip"><b>Getting animations out of a table:</b> tap <b>Import</b> and choose a <b>.vpx</b> or <b>.vpt</b> (Visual Pinball) or <b>.fpt</b> (Future Pinball) file. The app looks for the DMD images in the table and suggests animations. Loose <b>GIF</b>s, images, <b>ZIP</b> folders (such as FlexDMD/UltraDMD folders) and PinMAME/DMDExt dumps (<b>.txt</b>) work too.</div>
+  </section>
+</div>
+
+<div class="sheet" id="importSheet" hidden>
+  <header><button class="ib" id="impClose" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z"/></svg></button><h2>Import</h2>
+    <select id="gridSel" aria-label="Resolution"><option value="auto">Resolution: automatic</option><option value="128x32">128 × 32</option><option value="192x64">192 × 64</option><option value="256x64">256 × 64</option></select></header>
+  <div class="body" id="impBody"></div>
+  <footer id="impFoot" hidden>
+    <span class="note" id="selInfo" style="margin-right:auto;align-self:center"></span>
+    <button class="btn ghost" id="mergeBtn">Merge into one animation</button>
+    <button class="btn main" id="saveBtn">Save</button>
+  </footer>
+</div>
+
+<div id="fsview"><canvas id="fscv"></canvas><div id="fsname"></div>
+  <div id="fsbar">
+    <button class="ib" id="fsPrev" aria-label="Previous animation"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+    <button class="ib big" id="fsPlay" aria-label="Play/pause"><svg viewBox="0 0 24 24"><path id="fsPlayIcon" d="M7 4l13 8-13 8z"/></svg></button>
+    <button class="ib" id="fsNext" aria-label="Next animation"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <button class="ib" id="fsExit" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z"/></svg></button>
+  </div>
+</div>
+
+<dialog id="dlg"><h3 id="dlgTitle"></h3><div id="dlgBody"></div><div class="actions"><button class="btn ghost" id="dlgNo">Cancel</button><button class="btn main" id="dlgYes">OK</button></div></dialog>
+<input type="file" id="fileIn" multiple hidden>
+<div id="toast" hidden></div>
+<script>/* DMD Player: file formats.
+   Reads Visual Pinball (.vpx/.vpt) and Future Pinball (.fpt) tables, GIF, TGA, ZIP and PinMAME/DMDExt text dumps,
+   and turns what it finds into frames (RGBA) that the player can show.
+   Everything works on a "source": { name, size, read(offset, length) -> Promise<Uint8Array> },
+   so a table of several hundred MB is read piece by piece instead of all at once. */
+"use strict";
+
+const Formats = (() => {
+  const td = new TextDecoder("latin1");
+  const u16 = (b, o) => b[o] | (b[o + 1] << 8);
+  const u32 = (b, o) => (b[o] | (b[o + 1] << 8) | (b[o + 2] << 16) | (b[o + 3] << 24)) >>> 0;
+  const str4 = (b, o) => String.fromCharCode(b[o], b[o + 1], b[o + 2], b[o + 3]);
+
+  function fileSource(file) {
+    return { name: file.name, size: file.size, read: async (off, len) => new Uint8Array(await file.slice(off, off + len).arrayBuffer()) };
+  }
+  function bytesSource(name, bytes) {
+    return { name, size: bytes.length, read: async (off, len) => bytes.subarray(off, off + len) };
+  }
+
+  /* ---------- Compound File Binary (OLE), the container of .vpx, .vpt and .fpt ---------- */
+  const CFB_SIG = [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1];
+  const ENDCHAIN = 0xfffffffe, FREESECT = 0xffffffff;
+
+  async function openCFB(src) {
+    const h = await src.read(0, 512);
+    if (!CFB_SIG.every((v, i) => h[i] === v)) throw new Error("Not an OLE file");
+    const shift = u16(h, 0x1e), ssz = 1 << shift, miniShift = u16(h, 0x20);
+    const nFat = u32(h, 0x2c), dirStart = u32(h, 0x30), cutoff = u32(h, 0x38);
+    const miniFatStart = u32(h, 0x3c), nMiniFat = u32(h, 0x40);
+    let difatNext = u32(h, 0x44), nDifat = u32(h, 0x48);
+    const off = (s) => (s + 1) * ssz;
+
+    // read a list of sectors, merging neighbours into one read
+    async function readSectors(list, total) {
+      const out = new Uint8Array(list.length * ssz);
+      let i = 0;
+      while (i < list.length) {
+        let j = i + 1;
+        while (j < list.length && list[j] === list[j - 1] + 1 && j - i < 8192) j++;
+        const chunk = await src.read(off(list[i]), (j - i) * ssz);
+        out.set(chunk, i * ssz);
+        i = j;
+      }
+      return total != null ? out.subarray(0, total) : out;
+    }
+
+    // the FAT sector list: 109 entries in the header, the rest in DIFAT sectors
+    const fatSecs = [];
+    for (let i = 0; i < 109 && fatSecs.length < nFat; i++) fatSecs.push(u32(h, 0x4c + i * 4));
+    const per = ssz / 4;
+    let guard = 0;
+    while (fatSecs.length < nFat && difatNext < ENDCHAIN && nDifat-- > 0 && guard++ < 100000) {
+      const d = await src.read(off(difatNext), ssz);
+      for (let i = 0; i < per - 1 && fatSecs.length < nFat; i++) fatSecs.push(u32(d, i * 4));
+      difatNext = u32(d, (per - 1) * 4);
+    }
+    const fatBytes = await readSectors(fatSecs);
+    const fat = new Uint32Array(fatBytes.buffer, fatBytes.byteOffset, fatBytes.length / 4);
+    const chain = (start, table) => {
+      const out = [];
+      let s = start;
+      while (s < ENDCHAIN && s < table.length && out.length <= table.length) { out.push(s); s = table[s]; }
+      return out;
+    };
+
+    // directory
+    const dirBytes = await readSectors(chain(dirStart, fat));
+    const entries = [];
+    for (let o = 0; o + 128 <= dirBytes.length; o += 128) {
+      const nl = u16(dirBytes, o + 64);
+      let name = "";
+      for (let k = 0; k + 2 < nl && k < 64; k += 2) name += String.fromCharCode(u16(dirBytes, o + k));
+      entries.push({ name, type: dirBytes[o + 66], left: u32(dirBytes, o + 68), right: u32(dirBytes, o + 72),
+        child: u32(dirBytes, o + 76), start: u32(dirBytes, o + 116), size: u32(dirBytes, o + 120), path: "" });
+    }
+    const root = entries[0];
+    if (!root) throw new Error("Empty directory in OLE file");
+    // walk the tree to give every entry its full path
+    const seen = new Set();
+    const walk = (idx, prefix) => {
+      const stack = [idx];
+      while (stack.length) {
+        const i = stack.pop();
+        if (i >= entries.length || seen.has(i)) continue;
+        seen.add(i);
+        const e = entries[i];
+        e.path = prefix ? prefix + "/" + e.name : e.name;
+        if (e.left < entries.length) stack.push(e.left);
+        if (e.right < entries.length) stack.push(e.right);
+        if (e.type === 1 && e.child < entries.length) walk(e.child, e.path);
+      }
+    };
+    seen.add(0);
+    if (root.child < entries.length) walk(root.child, "");
+    const streams = entries.filter((e) => e.type === 2 && e.path);
+
+    // the mini stream (all streams smaller than the cutoff) is loaded once when first needed
+    let mini = null, miniFat = null;
+    async function loadMini() {
+      if (mini) return;
+      const mb = await readSectors(chain(miniFatStart, fat));
+      miniFat = new Uint32Array(mb.buffer, mb.byteOffset, mb.length / 4);
+      mini = await readSectors(chain(root.start, fat), root.size);
+    }
+    async function readStream(e) {
+      if (e.size === 0) return new Uint8Array(0);
+      if (e.size < cutoff && nMiniFat > 0) {
+        await loadMini();
+        const ms = 1 << miniShift, out = new Uint8Array(e.size);
+        let pos = 0;
+        for (const s of chain(e.start, miniFat)) {
+          const n = Math.min(ms, e.size - pos);
+          out.set(mini.subarray(s * ms, s * ms + n), pos);
+          pos += n;
+          if (pos >= e.size) break;
+        }
+        return out;
+      }
+      return readSectors(chain(e.start, fat), e.size);
+    }
+    return { streams, readStream, find: (p) => streams.find((e) => e.path.toLowerCase() === p.toLowerCase()) };
+  }
+
+  /* ---------- LZW as used by GIF and by the BITS records of Visual Pinball ---------- */
+  function lzwDecode(data, minCode, expected) {
+    const clear = 1 << minCode, eoi = clear + 1;
+    const out = new Uint8Array(expected);
+    const prefix = new Uint16Array(4096), suffix = new Uint8Array(4096), first = new Uint8Array(4096), len = new Uint16Array(4096);
+    for (let i = 0; i < clear; i++) { suffix[i] = i; first[i] = i; len[i] = 1; }
+    let size = minCode + 1, mask = (1 << size) - 1, next = eoi + 1, old = -1;
+    let bits = 0, acc = 0, op = 0;
+    for (let ip = 0; ip < data.length && op < expected;) {
+      while (bits < size && ip < data.length) { acc |= data[ip++] << bits; bits += 8; }
+      if (bits < size) break;
+      const code = acc & mask;
+      acc >>>= size; bits -= size;
+      if (code === clear) { size = minCode + 1; mask = (1 << size) - 1; next = eoi + 1; old = -1; continue; }
+      if (code === eoi) break;
+      let c = code, L;
+      if (old === -1) {
+        if (code >= next) break;
+        out[op++] = suffix[code]; old = code; continue;
+      }
+      if (code < next) {
+        L = len[code];
+        if (next < 4096) { prefix[next] = old; suffix[next] = first[code]; first[next] = first[old]; len[next] = len[old] + 1; next++; }
+      } else if (code === next && next < 4096) {
+        prefix[next] = old; suffix[next] = first[old]; first[next] = first[old]; len[next] = len[old] + 1; next++;
+        L = len[code];
+      } else break;
+      // write the string backwards
+      let p = op + L - 1;
+      if (p >= expected) { // clip
+        let skip = p - expected + 1; p = expected - 1;
+        while (skip-- > 0) c = prefix[c];
+      }
+      const end = p;
+      while (p >= op) { out[p--] = suffix[c]; c = prefix[c]; }
+      op = end + 1;
+      old = code;
+      if (next > mask && size < 12) { size++; mask = (1 << size) - 1; }
+    }
+    return op === expected ? out : out.subarray(0, op);
+  }
+
+  /* ---------- LZO1X decompression (Future Pinball "zLZO" data) ---------- */
+  function lzo1xDecompress(src, outLen) {
+    const out = new Uint8Array(outLen);
+    let ip = 0, op = 0, t, m;
+    const lit = (n) => { if (op + n > outLen || ip + n > src.length) throw new Error("LZO: too much data"); out.set(src.subarray(ip, ip + n), op); op += n; ip += n; };
+    const copy = (from, n) => { if (from < 0 || op + n > outLen) throw new Error("LZO: bad back-reference"); for (let k = 0; k < n; k++) out[op++] = out[from++]; };
+    const run = (base) => { let n = 0; while (src[ip] === 0) { n += 255; ip++; if (ip >= src.length) throw new Error("LZO: unexpected end"); } return n + base + src[ip++]; };
+    let state = 0; // 0: start of a literal run, 1: right after a literal run, 2: match with t set, 3: trailing literals
+    if (src[0] > 17) {
+      t = src[ip++] - 17;
+      if (t < 4) { state = 3; } else { lit(t); state = 1; }
+    }
+    for (let guard = 0; guard < 1e9; guard++) {
+      if (state === 0) {
+        t = src[ip++];
+        if (t >= 16) { state = 2; continue; }
+        if (t === 0) t = run(15);
+        lit(t + 3);
+        state = 1;
+        continue;
+      }
+      if (state === 1) {
+        t = src[ip++];
+        if (t >= 16) { state = 2; continue; }
+        m = op - 0x801 - (t >> 2) - (src[ip++] << 2);
+        copy(m, 3);
+        t = src[ip - 2] & 3;
+        if (t === 0) { state = 0; continue; }
+        state = 3; continue;
+      }
+      if (state === 2) {
+        if (t >= 64) {
+          m = op - 1 - ((t >> 2) & 7) - (src[ip++] << 3);
+          copy(m, (t >> 5) - 1 + 2);
+        } else if (t >= 32) {
+          t &= 31;
+          if (t === 0) t = run(31);
+          m = op - 1 - ((src[ip] >> 2) + (src[ip + 1] << 6));
+          ip += 2;
+          copy(m, t + 2);
+        } else if (t >= 16) {
+          m = op - ((t & 8) << 11);
+          t &= 7;
+          if (t === 0) t = run(7);
+          m -= (src[ip] >> 2) + (src[ip + 1] << 6);
+          ip += 2;
+          if (m === op) return out.subarray(0, op); // end of stream
+          m -= 0x4000;
+          copy(m, t + 2);
+        } else {
+          m = op - 1 - (t >> 2) - (src[ip++] << 2);
+          copy(m, 2);
+        }
+        t = src[ip - 2] & 3;
+        if (t === 0) { state = 0; continue; }
+        state = 3; continue;
+      }
+      // state 3: 1..3 literals after a match, then the next instruction is always a match
+      lit(t);
+      t = src[ip++];
+      state = 2;
+    }
+    throw new Error("LZO: no end marker");
+  }
+  function unpackFP(data) {
+    if (data.length > 8 && str4(data, 0) === "zLZO") {
+      const n = u32(data, 4);
+      if (n > 0 && n < 512 * 1024 * 1024) return lzo1xDecompress(data.subarray(8), n);
+    }
+    return data;
+  }
+
+  /* ---------- image decoding ---------- */
+  function sniff(b) {
+    if (b.length < 12) return null;
+    if (b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47) return "png";
+    if (b[0] === 0xff && b[1] === 0xd8 && b[2] === 0xff) return "jpeg";
+    if (b[0] === 0x47 && b[1] === 0x49 && b[2] === 0x46 && b[3] === 0x38) return "gif";
+    if (b[0] === 0x42 && b[1] === 0x4d) return "bmp";
+    if (str4(b, 0) === "RIFF" && str4(b, 8) === "WEBP") return "webp";
+    if (str4(b, 0) === "PK\x03\x04") return "zip";
+    if (b[0] === 0x00 && b[1] === 0x00 && b[2] === 0x01 && b[3] === 0x00) return "ico";
+    return null;
+  }
+
+  // TGA (Future Pinball tables often keep their images as Targa)
+  function decodeTGA(b) {
+    const idLen = b[0], cmType = b[1], type = b[2];
+    const cmFirst = u16(b, 3), cmLen = u16(b, 5), cmBits = b[7];
+    const w = u16(b, 12), h = u16(b, 14), bpp = b[16], desc = b[17];
+    if (![1, 2, 3, 9, 10, 11].includes(type) || !w || !h || w > 8192 || h > 8192) return null;
+    if (![8, 15, 16, 24, 32].includes(bpp)) return null;
+    let p = 18 + idLen;
+    let cmap = null;
+    const readPx = (bb, q, bits) => {
+      if (bits === 32) return [bb[q + 2], bb[q + 1], bb[q], bb[q + 3]];
+      if (bits === 24) return [bb[q + 2], bb[q + 1], bb[q], 255];
+      if (bits === 15 || bits === 16) { const v = u16(bb, q); return [((v >> 10) & 31) * 255 / 31 | 0, ((v >> 5) & 31) * 255 / 31 | 0, (v & 31) * 255 / 31 | 0, 255]; }
+      return [bb[q], bb[q], bb[q], 255];
+    };
+    if (cmType === 1) {
+      const eb = Math.ceil(cmBits / 8);
+      cmap = [];
+      for (let i = 0; i < cmLen; i++) cmap[cmFirst + i] = readPx(b, p + i * eb, cmBits);
+      p += cmLen * eb;
+    }
+    const pxBytes = Math.ceil(bpp / 8), n = w * h;
+    const raw = new Uint8Array(n * 4);
+    const put = (i, q) => {
+      let c;
+      if (type === 1 || type === 9) c = (cmap && cmap[b[q] | (pxBytes > 1 ? b[q + 1] << 8 : 0)]) || [0, 0, 0, 255];
+      else c = readPx(b, q, (type === 3 || type === 11) ? 8 : bpp);
+      raw[i * 4] = c[0]; raw[i * 4 + 1] = c[1]; raw[i * 4 + 2] = c[2]; raw[i * 4 + 3] = c[3];
+    };
+    if (type < 9) {
+      if (p + n * pxBytes > b.length) return null;
+      for (let i = 0; i < n; i++) put(i, p + i * pxBytes);
+    } else {
+      let i = 0;
+      while (i < n && p < b.length) {
+        const hdr = b[p++], cnt = (hdr & 127) + 1;
+        if (hdr & 128) { for (let k = 0; k < cnt && i < n; k++) put(i++, p); p += pxBytes; }
+        else { for (let k = 0; k < cnt && i < n; k++) { put(i++, p); p += pxBytes; } }
+      }
+    }
+    // alpha: 32-bit files with no alpha bits set are opaque
+    if (bpp === 32 && (desc & 15) === 0) for (let i = 3; i < raw.length; i += 4) raw[i] = 255;
+    // origin: bit 5 set = top-left, otherwise bottom-left
+    const out = new Uint8ClampedArray(n * 4);
+    const top = desc & 0x20, right = desc & 0x10;
+    for (let y = 0; y < h; y++) {
+      const sy = top ? y : h - 1 - y;
+      for (let x = 0; x < w; x++) {
+        const sx = right ? w - 1 - x : x;
+        const s = (sy * w + sx) * 4, d = (y * w + x) * 4;
+        out[d] = raw[s]; out[d + 1] = raw[s + 1]; out[d + 2] = raw[s + 2]; out[d + 3] = raw[s + 3];
+      }
+    }
+    return { w, h, data: out };
+  }
+
+  // GIF, with every frame composed onto the logical screen
+  function decodeGIF(b) {
+    if (str4(b, 0) !== "GIF8") return null;
+    const W = u16(b, 6), H = u16(b, 8), flags = b[10];
+    let p = 13, gct = null;
+    const readTable = (n) => { const t = []; for (let i = 0; i < n; i++) t.push([b[p + i * 3], b[p + i * 3 + 1], b[p + i * 3 + 2]]); p += n * 3; return t; };
+    if (flags & 0x80) gct = readTable(1 << ((flags & 7) + 1));
+    const canvas = new Uint8ClampedArray(W * H * 4);
+    const frames = [];
+    let delay = 100, trans = -1, disposal = 0;
+    while (p < b.length) {
+      const blk = b[p++];
+      if (blk === 0x3b) break;
+      if (blk === 0x21) {
+        const label = b[p++];
+        if (label === 0xf9 && b[p] >= 4) {
+          const pf = b[p + 1];
+          disposal = (pf >> 2) & 7;
+          delay = u16(b, p + 2) * 10;
+          trans = pf & 1 ? b[p + 4] : -1;
+        }
+        while (p < b.length && b[p] !== 0) p += b[p] + 1;
+        p++;
+        continue;
+      }
+      if (blk !== 0x2c) break;
+      const fx = u16(b, p), fy = u16(b, p + 2), fw = u16(b, p + 4), fh = u16(b, p + 6), lf = b[p + 8];
+      p += 9;
+      let table = gct;
+      if (lf & 0x80) table = readTable(1 << ((lf & 7) + 1));
+      const interlaced = lf & 0x40;
+      const minCode = b[p++];
+      const parts = [];
+      let total = 0;
+      while (p < b.length && b[p] !== 0) { parts.push(b.subarray(p + 1, p + 1 + b[p])); total += b[p]; p += b[p] + 1; }
+      p++;
+      const joined = new Uint8Array(total);
+      let q = 0;
+      for (const s of parts) { joined.set(s, q); q += s.length; }
+      const idx = lzwDecode(joined, minCode, fw * fh);
+      const before = disposal === 3 ? canvas.slice() : null;
+      const rows = [];
+      if (interlaced) { for (const [st, stp] of [[0, 8], [4, 8], [2, 4], [1, 2]]) for (let y = st; y < fh; y += stp) rows.push(y); }
+      else for (let y = 0; y < fh; y++) rows.push(y);
+      for (let r = 0; r < fh; r++) {
+        const y = rows[r] + fy;
+        if (y >= H) continue;
+        for (let x = 0; x < fw; x++) {
+          const k = r * fw + x;
+          if (k >= idx.length) break;
+          const ci = idx[k];
+          if (ci === trans || !table || !table[ci]) continue;
+          const X = x + fx;
+          if (X >= W) continue;
+          const d = (y * W + X) * 4, c = table[ci];
+          canvas[d] = c[0]; canvas[d + 1] = c[1]; canvas[d + 2] = c[2]; canvas[d + 3] = 255;
+        }
+      }
+      frames.push({ data: canvas.slice(), delay: delay < 20 ? 100 : delay });
+      if (disposal === 2) {
+        for (let y = fy; y < Math.min(H, fy + fh); y++) canvas.fill(0, (y * W + fx) * 4, (y * W + Math.min(W, fx + fw)) * 4);
+      } else if (disposal === 3 && before) canvas.set(before);
+      delay = 100; trans = -1; disposal = 0;
+    }
+    return frames.length ? { w: W, h: H, frames } : null;
+  }
+
+  async function decodeWithBrowser(bytes, type) {
+    const blob = new Blob([bytes], { type: "image/" + type });
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement("canvas");
+    c.width = bmp.width; c.height = bmp.height;
+    const ctx = c.getContext("2d", { willReadFrequently: true });
+    ctx.drawImage(bmp, 0, 0);
+    if (bmp.close) bmp.close();
+    return { w: c.width, h: c.height, data: ctx.getImageData(0, 0, c.width, c.height).data };
+  }
+
+  // any image bytes -> { w, h, frames: [{data, delay}] } or null
+  async function decodeImage(bytes, nameHint) {
+    const t = sniff(bytes);
+    try {
+      if (t === "gif") return decodeGIF(bytes);
+      if (t === "png" || t === "jpeg" || t === "bmp" || t === "webp" || t === "ico") {
+        const im = await decodeWithBrowser(bytes, t === "jpeg" ? "jpeg" : t === "ico" ? "x-icon" : t);
+        return { w: im.w, h: im.h, frames: [{ data: im.data, delay: 0 }] };
+      }
+      if (!t || /\.tga$/i.test(nameHint || "")) {
+        const im = decodeTGA(bytes);
+        if (im) return { w: im.w, h: im.h, frames: [{ data: im.data, delay: 0 }] };
+      }
+    } catch (e) { /* not an image we can read */ }
+    return null;
+  }
+
+  /* ---------- Visual Pinball images (GameStg/Image<n>, BIFF records) ---------- */
+  function parseVPXImage(b) {
+    const img = { name: "", path: "", w: 0, h: 0, bytes: null, bgra: null };
+    let p = 0;
+    const getStr = (q) => td.decode(b.subarray(q + 4, q + 4 + u32(b, q)));
+    while (p + 8 <= b.length) {
+      const size = u32(b, p), tag = str4(b, p + 4);
+      const d = p + 8;
+      if (tag === "ENDB") break;
+      if (tag === "BITS") {
+        // LZW blocks without a length: each block is a length byte plus data, up to the ALTV record
+        let q = d;
+        while (q < b.length) {
+          if (q + 8 <= b.length && str4(b, q + 4) === "ALTV") break;
+          const n = b[q];
+          q += 1 + n;
+          if (n === 0) break;
+        }
+        img.bitsData = b.subarray(d, q);
+        p = q;
+        continue;
+      }
+      if (tag === "JPEG") {
+        // a nested PinBinary record list with the original file in DATA
+        let q = d, dataLen = 0;
+        while (q + 8 <= b.length) {
+          const s2 = u32(b, q), t2 = str4(b, q + 4);
+          if (t2 === "ENDB") { q += 8; break; }
+          if (t2 === "SIZE") { dataLen = u32(b, q + 8); q += 4 + s2; continue; }
+          if (t2 === "DATA") { img.bytes = b.subarray(q + 8, q + 8 + dataLen); q += 8 + dataLen; continue; }
+          if (t2 === "PATH" && !img.path) img.path = getStr(q + 8);
+          q += 4 + s2;
+        }
+        p = q;
+        continue;
+      }
+      if (tag === "NAME") img.name = getStr(d);
+      else if (tag === "PATH") img.path = getStr(d);
+      else if (tag === "WDTH") img.w = u32(b, d);
+      else if (tag === "HGHT") img.h = u32(b, d);
+      p += 4 + size;
+    }
+    return img;
+  }
+  async function decodeVPXImage(img) {
+    if (img.bytes) return decodeImage(img.bytes, img.path);
+    if (img.bitsData && img.w && img.h) {
+      const blocks = img.bitsData, parts = [];
+      let q = 0, total = 0;
+      while (q < blocks.length) { const n = blocks[q]; if (!n) break; parts.push(blocks.subarray(q + 1, q + 1 + n)); total += n; q += 1 + n; }
+      const joined = new Uint8Array(total);
+      let o = 0;
+      for (const s of parts) { joined.set(s, o); o += s.length; }
+      const bgra = lzwDecode(joined, 8, img.w * img.h * 4);
+      if (bgra.length !== img.w * img.h * 4) return null;
+      const rgba = new Uint8ClampedArray(bgra.length);
+      let alpha = false;
+      for (let i = 0; i < bgra.length; i += 4) { rgba[i] = bgra[i + 2]; rgba[i + 1] = bgra[i + 1]; rgba[i + 2] = bgra[i]; rgba[i + 3] = bgra[i + 3]; if (bgra[i + 3] !== 255) alpha = true; }
+      // some old tables store 0 alpha everywhere: treat them as opaque
+      if (alpha) { let any = false; for (let i = 3; i < rgba.length; i += 4) if (rgba[i]) { any = true; break; } if (!any) for (let i = 3; i < rgba.length; i += 4) rgba[i] = 255; }
+      return { w: img.w, h: img.h, frames: [{ data: rgba, delay: 0 }] };
+    }
+    return null;
+  }
+
+  /* ---------- Future Pinball images (Future Pinball/Image <n>, tagged records) ---------- */
+  const FP = { type: 0xa4f1b9d1, name: 0xa4f4d1d7, id: 0xa4f4c4dc, path: 0xa1edd1d5, data: 0xa8edd1e1, dataLen: 0xa4e7c9d2, end: 0xa7fdc4e0 };
+  const FP_KNOWN = new Set(Object.values(FP).concat([0x9ef3c6d9, 0xa6e9bee4, 0x95f5cce1, 0x96f3c0d1, 0x95efbbd9]));
+  const FP_OLD = 0x15bdecdb; // tables from older Future Pinball versions use tags shifted by this amount
+  const fpTag = (t) => (FP_KNOWN.has(t) ? t : (t - FP_OLD) >>> 0);
+  function parseFPRecords(b, isList) {
+    const r = { name: "", path: "", type: 0, data: null, items: null };
+    let p = 0;
+    while (p + 8 <= b.length) {
+      const len = u32(b, p), tag = fpTag(u32(b, p + 4)), d = p + 8;
+      if (tag === FP.end) break;
+      if (tag === FP.name || tag === FP.path) {
+        const s = td.decode(b.subarray(d + 4, d + 4 + u32(b, d)));
+        if (tag === FP.name) r.name = s; else r.path = s;
+      } else if (tag === FP.type) r.type = u32(b, d);
+      else if (tag === FP.data && isList) {
+        // a list of image names; the record length is not reliable here, so count it out
+        const n = u32(b, d);
+        let q = d + 4;
+        r.items = [];
+        for (let i = 0; i < n && q + 4 <= b.length; i++) { const l = u32(b, q); r.items.push(td.decode(b.subarray(q + 4, q + 4 + l))); q += 4 + l; }
+        p = q;
+        continue;
+      } else if (tag === FP.data) r.data = b.subarray(d, Math.min(b.length, p + 4 + len));
+      if (len < 4) break;
+      p += 4 + len;
+    }
+    return r;
+  }
+
+  /* ---------- ZIP (deflate via DecompressionStream) ---------- */
+  async function inflateRaw(bytes) {
+    const ds = new DecompressionStream("deflate-raw");
+    const buf = await new Response(new Blob([bytes]).stream().pipeThrough(ds)).arrayBuffer();
+    return new Uint8Array(buf);
+  }
+  async function readZip(src) {
+    const tailLen = Math.min(src.size, 66000);
+    const tail = await src.read(src.size - tailLen, tailLen);
+    let e = -1;
+    for (let i = tail.length - 22; i >= 0; i--) if (u32(tail, i) === 0x06054b50) { e = i; break; }
+    if (e < 0) throw new Error("Broken ZIP");
+    const n = u16(tail, e + 10), cdSize = u32(tail, e + 12), cdOff = u32(tail, e + 16);
+    const cd = await src.read(cdOff, cdSize);
+    const files = [];
+    for (let p = 0, i = 0; i < n && p + 46 <= cd.length; i++) {
+      const method = u16(cd, p + 10), csize = u32(cd, p + 20), usize = u32(cd, p + 24);
+      const nl = u16(cd, p + 28), xl = u16(cd, p + 30), cl = u16(cd, p + 32), lho = u32(cd, p + 42);
+      const name = new TextDecoder().decode(cd.subarray(p + 46, p + 46 + nl));
+      p += 46 + nl + xl + cl;
+      if (name.endsWith("/")) continue;
+      files.push({ name, size: usize, async bytes() {
+        const lh = await src.read(lho, 30);
+        const start = lho + 30 + u16(lh, 26) + u16(lh, 28);
+        const raw = await src.read(start, csize);
+        if (method === 0) return raw;
+        if (method === 8) return inflateRaw(raw);
+        throw new Error("Unknown ZIP compression");
+      } });
+    }
+    return files;
+  }
+
+  /* ---------- PinMAME / DMDExt text dumps ---------- */
+  function parseDump(text) {
+    const lines = text.split(/\r?\n/);
+    const frames = [];
+    let cur = null, maxV = 0;
+    for (const raw of lines) {
+      const l = raw.trim();
+      if (/^0x[0-9a-f]+$/i.test(l)) { cur = { t: parseInt(l, 16), rows: [] }; frames.push(cur); continue; }
+      if (/^[0-9a-f]{16,}$/i.test(l)) {
+        if (!cur) { cur = { t: frames.length * 40, rows: [] }; frames.push(cur); }
+        cur.rows.push(l);
+        for (const ch of l) { const v = parseInt(ch, 16); if (v > maxV) maxV = v; }
+      } else if (l === "" && cur && cur.rows.length) cur = null;
+    }
+    const good = frames.filter((f) => f.rows.length);
+    if (!good.length) return null;
+    const w = good[0].rows[0].length, h = good[0].rows.length;
+    const top = maxV <= 3 ? 3 : 15;
+    const out = [];
+    good.forEach((f, i) => {
+      if (f.rows.length !== h) return;
+      const d = new Uint8ClampedArray(w * h * 4);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+        const v = Math.round(parseInt(f.rows[y][x] || "0", 16) * 255 / top), k = (y * w + x) * 4;
+        d[k] = d[k + 1] = d[k + 2] = v; d[k + 3] = 255;
+      }
+      const next = good[i + 1];
+      const dl = next ? next.t - f.t : 0;
+      out.push({ data: d, delay: dl > 0 && dl < 5000 ? dl : 40 });
+    });
+    return out.length ? { w, h, frames: out } : null;
+  }
+
+  /* ---------- grouping images into animations ---------- */
+  const DMD_SIZES = [[128, 32], [192, 64], [256, 64], [128, 16], [160, 32], [192, 32]];
+  function dmdLike(w, h) {
+    if (!w || !h) return false;
+    if (DMD_SIZES.some(([a, b]) => w % a === 0 && h % b === 0 && w / a === h / b && w / a <= 8)) return true;
+    const r = w / h;
+    return r >= 2.9 && r <= 6.1 && h <= 512;
+  }
+  function splitName(name) {
+    const base = name.replace(/\.[a-z0-9]{2,4}$/i, "");
+    const m = base.match(/^(.*?)[\s_\-.#(]*(\d+)\)?$/);
+    if (!m || !m[1]) return null;
+    return { key: m[1].toLowerCase(), label: m[1].replace(/[\s_\-.]+$/, ""), num: parseInt(m[2], 10) };
+  }
+
+  /* Reads one source (file or zip entry) and reports items through onItem(item):
+     item = { kind: "image", name, w, h, frames, origin } or { kind: "list", name, items: [names], origin } */
+  async function scan(src, onItem, onProgress, depth = 0, origin0 = null) {
+    const head = await src.read(0, Math.min(src.size, 64));
+    const lower = src.name.toLowerCase();
+    if (CFB_SIG.every((v, i) => head[i] === v)) {
+      const cfb = await openCFB(src);
+      const isFP = cfb.streams.some((s) => /^Future Pinball\//i.test(s.path));
+      const imgs = cfb.streams.filter((s) => isFP ? /\/Image \d+$/i.test(s.path) : /^GameStg\/Image\d+$/i.test(s.path));
+      const lists = isFP ? cfb.streams.filter((s) => /\/ImageList \d+$/i.test(s.path)) : [];
+      const num = (s) => parseInt(s.path.match(/(\d+)$/)[1], 10);
+      imgs.sort((a, b) => num(a) - num(b));
+      const origin = origin0 || src.name;
+      for (let i = 0; i < imgs.length; i++) {
+        onProgress && onProgress(i, imgs.length, src.name);
+        try {
+          const raw = await cfb.readStream(imgs[i]);
+          let name, dec = null;
+          if (isFP) {
+            const r = parseFPRecords(raw, false);
+            name = r.name || "Image " + num(imgs[i]);
+            if (r.data) {
+              const data = unpackFP(r.data);
+              dec = await decodeImage(data, r.path || name);
+            }
+          } else {
+            const im = parseVPXImage(raw);
+            name = im.name || "Image" + num(imgs[i]);
+            dec = await decodeVPXImage(im);
+          }
+          if (dec) onItem({ kind: "image", name, w: dec.w, h: dec.h, frames: dec.frames, origin });
+          else onItem({ kind: "skip", name, origin });
+        } catch (e) { onItem({ kind: "skip", name: imgs[i].path, origin, error: String(e.message || e) }); }
+        if (i % 8 === 7) await new Promise((r) => setTimeout(r, 0));
+      }
+      for (const l of lists) {
+        try {
+          const r = parseFPRecords(await cfb.readStream(l), true);
+          if (r.items && r.items.length) onItem({ kind: "list", name: r.name || "List", items: r.items, origin });
+        } catch (e) { /* skip */ }
+      }
+      onProgress && onProgress(imgs.length, imgs.length, src.name);
+      return { table: isFP ? "fp" : "vp", images: imgs.length, lists: lists.length };
+    }
+    if (str4(head, 0) === "PK\x03\x04" && depth < 2) {
+      const files = await readZip(src);
+      let n = 0;
+      for (const f of files) {
+        if (!/\.(vpx|vpt|fpt|gif|png|jpe?g|bmp|tga|webp|txt|zip)$/i.test(f.name)) continue;
+        n++;
+        onProgress && onProgress(n, files.length, f.name);
+        const dir = f.name.includes("/") ? f.name.replace(/\/[^/]*$/, "") : "";
+        try { await scan(bytesSource(f.name, await f.bytes()), (it) => { if (dir) it.folder = dir.replace(/^.*\//, ""); onItem(it); }, onProgress, depth + 1, src.name + ":" + dir); } catch (e) { onItem({ kind: "skip", name: f.name, origin: src.name }); }
+      }
+      return { table: "zip", images: n };
+    }
+    if (/\.txt$/i.test(lower) || /^0x[0-9a-f]+\s/i.test(td.decode(head))) {
+      const text = new TextDecoder().decode(await src.read(0, src.size));
+      const d = parseDump(text);
+      if (d) onItem({ kind: "image", name: src.name.replace(/^.*\//, "").replace(/\.txt$/i, ""), w: d.w, h: d.h, frames: d.frames, origin: origin0 || src.name, dump: true });
+      else onItem({ kind: "skip", name: src.name, origin: src.name });
+      return { table: "txt" };
+    }
+    const bytes = await src.read(0, src.size);
+    const dec = await decodeImage(bytes, src.name);
+    if (dec) onItem({ kind: "image", name: src.name.replace(/^.*\//, ""), w: dec.w, h: dec.h, frames: dec.frames, origin: origin0 || src.name });
+    else onItem({ kind: "skip", name: src.name, origin: src.name });
+    return { table: "file" };
+  }
+
+  /* Turns scanned items into suggested animations.
+     Returns { anims: [{name, items:[image items], reason}], singles: [items], others: [items] } */
+  function group(items) {
+    const images = items.filter((i) => i.kind === "image");
+    const byName = new Map();
+    for (const im of images) byName.set(im.origin + "|" + im.name.toLowerCase(), im);
+    const used = new Set();
+    const anims = [];
+    // 1. Future Pinball image lists
+    for (const l of items.filter((i) => i.kind === "list")) {
+      const frames = l.items.map((n) => byName.get(l.origin + "|" + n.toLowerCase())).filter(Boolean);
+      if (frames.length >= 2) { anims.push({ name: l.name, items: frames, reason: "Image list from the table" }); frames.forEach((f) => used.add(f)); }
+    }
+    // 2. animated GIFs and dumps
+    for (const im of images) if (!used.has(im) && im.frames.length > 1) { anims.push({ name: im.name.replace(/\.gif$/i, ""), items: [im], reason: im.dump ? "DMD dump" : "Animated GIF" }); used.add(im); }
+    // 3. numbered names of the same size
+    const buckets = new Map();
+    for (const im of images) {
+      if (used.has(im)) continue;
+      const s = splitName(im.name);
+      if (!s) continue;
+      const k = im.origin + "|" + s.key + "|" + im.w + "x" + im.h;
+      const generic = /^(frame|frames|img|image|pic|dmd|anim|animation|f|)$/i.test(s.label.trim());
+      if (!buckets.has(k)) buckets.set(k, { label: generic && im.folder ? im.folder : s.label || im.folder || "Animation", list: [] });
+      buckets.get(k).list.push({ im, num: s.num });
+    }
+    for (const b of buckets.values()) {
+      if (b.list.length < 2) continue;
+      b.list.sort((a, c) => a.num - c.num);
+      anims.push({ name: b.label, items: b.list.map((x) => x.im), reason: "Numbered images" });
+      b.list.forEach((x) => used.add(x.im));
+    }
+    const rest = images.filter((im) => !used.has(im));
+    const singles = rest.filter((im) => dmdLike(im.w, im.h));
+    const others = rest.filter((im) => !dmdLike(im.w, im.h));
+    // DMD-shaped animations first
+    anims.sort((a, b) => (dmdLike(b.items[0].w, b.items[0].h) - dmdLike(a.items[0].w, a.items[0].h)) || b.items.length - a.items.length);
+    return { anims, singles, others };
+  }
+
+  return { fileSource, bytesSource, openCFB, lzwDecode, lzo1xDecompress, unpackFP, decodeGIF, decodeTGA, decodeImage, parseVPXImage, decodeVPXImage, parseFPRecords, readZip, parseDump, scan, group, dmdLike, splitName, DMD_SIZES, sniff };
+})();
+if (typeof module !== "undefined") module.exports = Formats;
+</script>
+<script>/* DMD Player: the dot-matrix renderer, resampling, a small pixel font, demo animations, GIF export and frame storage. */
+"use strict";
+
+const DMD = (() => {
+  const TINTS = {
+    oranje: { label: "Orange", rgb: [255, 92, 16] },
+    rood: { label: "Red", rgb: [255, 36, 28] },
+    geel: { label: "Yellow", rgb: [255, 196, 30] },
+    groen: { label: "Green", rgb: [60, 255, 90] },
+    blauw: { label: "Blue", rgb: [60, 150, 255] },
+    wit: { label: "White", rgb: [236, 240, 255] },
+    kleur: { label: "Original", rgb: null },
+  };
+  const SIZES = [[128, 32], [192, 64], [256, 64]];
+
+  /* ---------- resampling any image onto the dot grid ---------- */
+  // fit: "contain" (letterbox) or "cover" (crop)
+  function toGrid(src, gw, gh, fit) {
+    const { w: sw, h: sh, data } = src;
+    const out = new Uint8ClampedArray(gw * gh * 4);
+    for (let i = 3; i < out.length; i += 4) out[i] = 255;
+    if (sw === gw && sh === gh) {
+      for (let i = 0; i < out.length; i += 4) { const a = data[i + 3] / 255; out[i] = data[i] * a; out[i + 1] = data[i + 1] * a; out[i + 2] = data[i + 2] * a; }
+      return out;
+    }
+    const s = fit === "cover" ? Math.max(gw / sw, gh / sh) : Math.min(gw / sw, gh / sh);
+    const tw = sw * s, th = sh * s, ox = (gw - tw) / 2, oy = (gh - th) / 2;
+    for (let y = 0; y < gh; y++) {
+      const sy0 = (y - oy) / s, sy1 = (y + 1 - oy) / s;
+      if (sy1 <= 0 || sy0 >= sh) continue;
+      for (let x = 0; x < gw; x++) {
+        const sx0 = (x - ox) / s, sx1 = (x + 1 - ox) / s;
+        if (sx1 <= 0 || sx0 >= sw) continue;
+        let r = 0, g = 0, b = 0, wsum = 0;
+        const ya = Math.max(0, Math.floor(sy0)), yb = Math.min(sh, Math.ceil(sy1));
+        const xa = Math.max(0, Math.floor(sx0)), xb = Math.min(sw, Math.ceil(sx1));
+        // with big sources sample a sub-grid instead of every pixel
+        const stepY = Math.max(1, Math.floor((yb - ya) / 6)), stepX = Math.max(1, Math.floor((xb - xa) / 6));
+        for (let yy = ya; yy < yb; yy += stepY) {
+          const wy = Math.min(yy + 1, sy1) - Math.max(yy, sy0);
+          if (wy <= 0) continue;
+          for (let xx = xa; xx < xb; xx += stepX) {
+            const wx = Math.min(xx + 1, sx1) - Math.max(xx, sx0);
+            if (wx <= 0) continue;
+            const k = (yy * sw + xx) * 4, a = data[k + 3] / 255, wgt = wx * wy;
+            r += data[k] * a * wgt; g += data[k + 1] * a * wgt; b += data[k + 2] * a * wgt; wsum += wgt;
+          }
+        }
+        // the part of a dot outside the picture counts as black
+        const cover = (Math.min(sx1, sw) - Math.max(sx0, 0)) * (Math.min(sy1, sh) - Math.max(sy0, 0)) / ((sx1 - sx0) * (sy1 - sy0));
+        if (wsum > 0) { const k = (y * gw + x) * 4, f = cover / wsum; out[k] = r * f; out[k + 1] = g * f; out[k + 2] = b * f; }
+      }
+    }
+    return out;
+  }
+  // a good grid for a picture of w x h
+  function gridFor(w, h) {
+    for (const [a, b] of SIZES) if (w === a && h === b) return [a, b];
+    for (const [a, b] of SIZES) if (w % a === 0 && h % b === 0 && w / a === h / b) return [a, b];
+    const r = w / h;
+    if (r >= 3.5) return [128, 32];
+    if (r >= 2.5) return [192, 64];
+    return [128, 32];
+  }
+
+  /* ---------- renderer ---------- */
+  class Renderer {
+    constructor(canvas, opts = {}) {
+      this.cv = canvas;
+      this.ctx = canvas.getContext("2d");
+      this.small = document.createElement("canvas");
+      this.sctx = this.small.getContext("2d");
+      this.style = Object.assign({ tint: "oranje", shape: "rond", glow: true, levels: 16, unlit: 0.09 }, opts);
+      this.gw = 0; this.gh = 0; this.mask = null; this.maskKey = "";
+      this.fixed = opts.fixedSize || null; // {w,h} for exports
+    }
+    setGrid(gw, gh) {
+      if (gw === this.gw && gh === this.gh) return;
+      this.gw = gw; this.gh = gh;
+      this.small.width = gw; this.small.height = gh;
+      this.img = this.sctx.createImageData(gw, gh);
+      this.mask = null;
+    }
+    setStyle(s) { Object.assign(this.style, s); this.mask = null; }
+    fitCanvas() {
+      if (this.fixed) { this.cv.width = this.fixed.w; this.cv.height = this.fixed.h; return; }
+      const r = this.cv.getBoundingClientRect(), dpr = Math.min(window.devicePixelRatio || 1, 3);
+      const W = Math.max(1, Math.round(r.width * dpr)), H = Math.max(1, Math.round(r.height * dpr));
+      if (this.cv.width !== W || this.cv.height !== H) { this.cv.width = W; this.cv.height = H; this.mask = null; }
+    }
+    layout() {
+      const W = this.cv.width, H = this.cv.height;
+      const p = Math.min(W / this.gw, H / this.gh);
+      return { p, ox: (W - p * this.gw) / 2, oy: (H - p * this.gh) / 2, W, H };
+    }
+    buildMask() {
+      const { p, ox, oy, W, H } = this.layout();
+      const key = [W, H, this.gw, this.gh, this.style.shape].join();
+      if (this.mask && this.maskKey === key) return;
+      const m = this.mask || document.createElement("canvas");
+      m.width = W; m.height = H;
+      const c = m.getContext("2d");
+      c.globalCompositeOperation = "source-over";
+      c.clearRect(0, 0, W, H);
+      c.fillStyle = "#000";
+      c.fillRect(0, 0, W, H);
+      c.globalCompositeOperation = "destination-out";
+      c.fillStyle = "#000";
+      if (p < 2.2) { // too small for gaps: show plain pixels
+        c.fillRect(ox, oy, p * this.gw, p * this.gh);
+      } else if (this.style.shape === "vierkant") {
+        const g = Math.max(1, p * 0.16);
+        for (let y = 0; y < this.gh; y++) for (let x = 0; x < this.gw; x++) c.fillRect(ox + x * p + g / 2, oy + y * p + g / 2, p - g, p - g);
+      } else {
+        const rad = p * 0.42;
+        c.beginPath();
+        for (let y = 0; y < this.gh; y++) for (let x = 0; x < this.gw; x++) {
+          const cx = ox + (x + 0.5) * p, cy = oy + (y + 0.5) * p;
+          c.moveTo(cx + rad, cy);
+          c.arc(cx, cy, rad, 0, Math.PI * 2);
+        }
+        c.fill();
+      }
+      this.mask = m; this.maskKey = key;
+    }
+    // frame: RGBA at grid size
+    draw(frame) {
+      if (!this.gw) return;
+      this.fitCanvas();
+      const st = this.style, d = this.img.data, tint = TINTS[st.tint] ? TINTS[st.tint].rgb : TINTS.oranje.rgb;
+      const lv = st.levels > 1 && st.levels < 256 ? st.levels - 1 : 0, un = st.unlit;
+      if (frame) {
+        for (let i = 0; i < d.length; i += 4) {
+          let r = frame[i], g = frame[i + 1], b = frame[i + 2];
+          if (tint) {
+            let L = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+            L = Math.min(1, L * 1.08);
+            if (lv) L = Math.round(L * lv) / lv;
+            const f = un + (1 - un) * L;
+            d[i] = tint[0] * f; d[i + 1] = tint[1] * f; d[i + 2] = tint[2] * f;
+          } else {
+            if (lv) { r = Math.round(r / 255 * lv) / lv * 255; g = Math.round(g / 255 * lv) / lv * 255; b = Math.round(b / 255 * lv) / lv * 255; }
+            const base = 255 * un * 0.55;
+            d[i] = Math.max(r, base); d[i + 1] = Math.max(g, base); d[i + 2] = Math.max(b, base);
+          }
+          d[i + 3] = 255;
+        }
+      } else {
+        const f = tint ? un : un * 0.55;
+        for (let i = 0; i < d.length; i += 4) { d[i] = (tint ? tint[0] : 255) * f; d[i + 1] = (tint ? tint[1] : 255) * f; d[i + 2] = (tint ? tint[2] : 255) * f; d[i + 3] = 255; }
+      }
+      this.sctx.putImageData(this.img, 0, 0);
+      const { p, ox, oy, W, H } = this.layout(), ctx = this.ctx;
+      ctx.save();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.globalAlpha = 1;
+      ctx.fillStyle = "#000";
+      ctx.fillRect(0, 0, W, H);
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(this.small, ox, oy, p * this.gw, p * this.gh);
+      this.buildMask();
+      ctx.drawImage(this.mask, 0, 0);
+      if (st.glow && p >= 2.2 && frame) {
+        ctx.globalCompositeOperation = "lighter";
+        ctx.globalAlpha = 0.55;
+        ctx.imageSmoothingEnabled = true;
+        ctx.filter = "blur(" + Math.max(1, p * 0.9).toFixed(1) + "px)";
+        ctx.drawImage(this.small, ox, oy, p * this.gw, p * this.gh);
+        ctx.filter = "none";
+      }
+      ctx.restore();
+    }
+  }
+
+  /* ---------- a 5x7 pixel font ---------- */
+  const GLYPHS = {
+    A: ["01110", "10001", "10001", "11111", "10001", "10001", "10001"], B: ["11110", "10001", "10001", "11110", "10001", "10001", "11110"],
+    C: ["01110", "10001", "10000", "10000", "10000", "10001", "01110"], D: ["11110", "10001", "10001", "10001", "10001", "10001", "11110"],
+    E: ["11111", "10000", "10000", "11110", "10000", "10000", "11111"], F: ["11111", "10000", "10000", "11110", "10000", "10000", "10000"],
+    G: ["01110", "10001", "10000", "10111", "10001", "10001", "01111"], H: ["10001", "10001", "10001", "11111", "10001", "10001", "10001"],
+    I: ["01110", "00100", "00100", "00100", "00100", "00100", "01110"], J: ["00111", "00010", "00010", "00010", "00010", "10010", "01100"],
+    K: ["10001", "10010", "10100", "11000", "10100", "10010", "10001"], L: ["10000", "10000", "10000", "10000", "10000", "10000", "11111"],
+    M: ["10001", "11011", "10101", "10101", "10001", "10001", "10001"], N: ["10001", "10001", "11001", "10101", "10011", "10001", "10001"],
+    O: ["01110", "10001", "10001", "10001", "10001", "10001", "01110"], P: ["11110", "10001", "10001", "11110", "10000", "10000", "10000"],
+    Q: ["01110", "10001", "10001", "10001", "10101", "10010", "01101"], R: ["11110", "10001", "10001", "11110", "10100", "10010", "10001"],
+    S: ["01111", "10000", "10000", "01110", "00001", "00001", "11110"], T: ["11111", "00100", "00100", "00100", "00100", "00100", "00100"],
+    U: ["10001", "10001", "10001", "10001", "10001", "10001", "01110"], V: ["10001", "10001", "10001", "10001", "10001", "01010", "00100"],
+    W: ["10001", "10001", "10001", "10101", "10101", "10101", "01010"], X: ["10001", "10001", "01010", "00100", "01010", "10001", "10001"],
+    Y: ["10001", "10001", "01010", "00100", "00100", "00100", "00100"], Z: ["11111", "00001", "00010", "00100", "01000", "10000", "11111"],
+    0: ["01110", "10001", "10011", "10101", "11001", "10001", "01110"], 1: ["00100", "01100", "00100", "00100", "00100", "00100", "01110"],
+    2: ["01110", "10001", "00001", "00010", "00100", "01000", "11111"], 3: ["11111", "00010", "00100", "00010", "00001", "10001", "01110"],
+    4: ["00010", "00110", "01010", "10010", "11111", "00010", "00010"], 5: ["11111", "10000", "11110", "00001", "00001", "10001", "01110"],
+    6: ["00110", "01000", "10000", "11110", "10001", "10001", "01110"], 7: ["11111", "00001", "00010", "00100", "01000", "01000", "01000"],
+    8: ["01110", "10001", "10001", "01110", "10001", "10001", "01110"], 9: ["01110", "10001", "10001", "01111", "00001", "00010", "01100"],
+    " ": ["00000", "00000", "00000", "00000", "00000", "00000", "00000"], "!": ["00100", "00100", "00100", "00100", "00100", "00000", "00100"],
+    ".": ["00000", "00000", "00000", "00000", "00000", "01100", "01100"], ",": ["00000", "00000", "00000", "00000", "01100", "00100", "01000"],
+    "-": ["00000", "00000", "00000", "11111", "00000", "00000", "00000"], ":": ["00000", "01100", "01100", "00000", "01100", "01100", "00000"],
+    "?": ["01110", "10001", "00001", "00010", "00100", "00000", "00100"], "'": ["00100", "00100", "01000", "00000", "00000", "00000", "00000"],
+    "×": ["00000", "10001", "01010", "00100", "01010", "10001", "00000"],
+  };
+  const textWidth = (s, scale = 1) => s.length ? (s.length * 6 - 1) * scale : 0;
+  // draws text into a gray buffer (Float32Array w*h, 0..1)
+  function drawText(buf, w, h, s, x0, y0, scale = 1, v = 1) {
+    let x = Math.round(x0);
+    for (const ch of s.toUpperCase()) {
+      const g = GLYPHS[ch] || GLYPHS["?"];
+      for (let gy = 0; gy < 7; gy++) for (let gx = 0; gx < 5; gx++) {
+        if (g[gy][gx] !== "1") continue;
+        for (let sy = 0; sy < scale; sy++) for (let sx = 0; sx < scale; sx++) {
+          const px = x + gx * scale + sx, py = Math.round(y0) + gy * scale + sy;
+          if (px >= 0 && px < w && py >= 0 && py < h) buf[py * w + px] = Math.max(buf[py * w + px], v);
+        }
+      }
+      x += 6 * scale;
+    }
+  }
+  const grayToRGBA = (buf) => { const o = new Uint8ClampedArray(buf.length * 4); for (let i = 0; i < buf.length; i++) { const v = Math.max(0, Math.min(1, buf[i])) * 255; o[i * 4] = o[i * 4 + 1] = o[i * 4 + 2] = v; o[i * 4 + 3] = 255; } return o; };
+
+  /* ---------- demo animations (made here, so the library is never empty) ---------- */
+  function demos() {
+    const W = 128, H = 32, out = [];
+    const make = (name, n, fn, delay = 40) => {
+      const frames = [];
+      for (let i = 0; i < n; i++) { const b = new Float32Array(W * H); fn(b, i, n); frames.push(grayToRGBA(b)); }
+      out.push({ name, w: W, h: H, frames, delays: frames.map(() => delay), source: "Demo" });
+    };
+    make("Welcome", 150, (b, i) => {
+      const t1 = "DMD PLAYER", w1 = textWidth(t1, 2);
+      const x = i < 40 ? W - (W - (W - w1) / 2) * (i / 40) : (W - w1) / 2;
+      drawText(b, W, H, t1, x, 2, 2, 1);
+      if (i > 50) {
+        const t2 = "LOAD YOUR TABLES", w2 = textWidth(t2);
+        const vis = Math.min(t2.length, Math.floor((i - 50) / 3));
+        drawText(b, W, H, t2.slice(0, vis), (W - w2) / 2, 22, 1, 0.55);
+      }
+      if (i > 120 && i % 8 < 4) for (let k = 0; k < W; k++) { b[k] = 0.3; b[(H - 1) * W + k] = 0.3; }
+    });
+    make("Jackpot", 72, (b, i) => {
+      const cx = W / 2, cy = H / 2, a0 = i * 0.06;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+        const a = Math.atan2((y - cy) * 2, x - cx) + a0;
+        const ray = Math.cos(a * 8) > 0.6 ? 0.22 : 0;
+        b[y * W + x] = ray;
+      }
+      const t = "JACKPOT", w = textWidth(t, 2);
+      for (let y = 6; y < 26; y++) for (let x = (W - w) / 2 - 4; x < (W + w) / 2 + 4; x++) b[y * W + (x | 0)] = 0;
+      drawText(b, W, H, t, (W - w) / 2, 9, 2, i % 12 < 8 ? 1 : 0.35);
+    }, 45);
+    make("Multiball", 120, (b, i) => {
+      for (let k = 0; k < W; k++) { b[k] = 0.25; b[(H - 1) * W + k] = 0.25; }
+      for (let k = 0; k < H; k++) { b[k * W] = 0.25; b[k * W + W - 1] = 0.25; }
+      const balls = [[3.1, 1.7, 0], [2.3, 2.1, 1.4], [3.7, 1.3, 2.9]];
+      for (const [vx, vy, ph] of balls) for (let tr = 4; tr >= 0; tr--) {
+        const t = (i - tr * 1.2) + ph * 20;
+        const px = 4 + Math.abs(((t * vx) % (2 * (W - 9))) - (W - 9));
+        const py = 4 + Math.abs(((t * vy) % (2 * (H - 9))) - (H - 9));
+        const v = tr ? 0.5 - tr * 0.1 : 1;
+        for (let y = -2; y <= 2; y++) for (let x = -2; x <= 2; x++) if (x * x + y * y <= 5) {
+          const X = Math.round(px + x), Y = Math.round(py + y);
+          if (X > 0 && X < W - 1 && Y > 0 && Y < H - 1) b[Y * W + X] = Math.max(b[Y * W + X], v * (x === -1 && y === -1 && !tr ? 1 : 0.85));
+        }
+      }
+      if (i < 30 || i % 20 < 12) drawText(b, W, H, "MULTIBALL", (W - textWidth("MULTIBALL")) / 2, 12, 1, 0.6);
+    }, 35);
+    make("Star storm", 110, (b, i) => {
+      for (let s = 0; s < 70; s++) {
+        const ang = s * 2.399, sp = 0.6 + (s % 7) * 0.15;
+        const r = ((i * sp + s * 13) % 70);
+        const x = W / 2 + Math.cos(ang) * r * 1.6, y = H / 2 + Math.sin(ang) * r * 0.45;
+        const X = Math.round(x), Y = Math.round(y);
+        if (X >= 0 && X < W && Y >= 0 && Y < H) b[Y * W + X] = Math.min(1, 0.25 + r / 50);
+      }
+      if (i > 45) {
+        const t = "BONUS ×5", w = textWidth(t, 2), sc = i < 60 ? (i - 45) / 15 : 1;
+        if (sc >= 1) drawText(b, W, H, t, (W - w) / 2, 9, 2, 1);
+        else drawText(b, W, H, t, (W - textWidth(t)) / 2, 12, 1, sc);
+      }
+    }, 40);
+    make("Score", 90, (b, i) => {
+      const score = Math.floor(Math.min(1, i / 60) ** 0.6 * 4321560);
+      const s = score.toLocaleString("en-US");
+      drawText(b, W, H, "PLAYER 1", 2, 1, 1, 0.45);
+      drawText(b, W, H, "BALL 3", W - textWidth("BALL 3") - 2, 1, 1, 0.45);
+      drawText(b, W, H, s, W - textWidth(s, 2) - 4, 13, 2, i > 60 && i % 10 < 5 ? 0.5 : 1);
+    }, 40);
+    return out;
+  }
+
+  /* ---------- GIF encoder ---------- */
+  function quantize(frames) {
+    // reduce colour precision until at most 255 colours remain (index 255 is spare)
+    for (let bits = 8; bits >= 3; bits--) {
+      const sh = 8 - bits, map = new Map();
+      let over = false;
+      outer: for (const f of frames) for (let i = 0; i < f.length; i += 4) {
+        const k = ((f[i] >> sh) << 16) | ((f[i + 1] >> sh) << 8) | (f[i + 2] >> sh);
+        if (!map.has(k)) { map.set(k, map.size); if (map.size > 255) { over = true; break outer; } }
+      }
+      if (!over) {
+        const pal = [], fill = (v) => sh ? Math.min(255, (v << sh) | ((1 << sh) - 1) * (v ? 1 : 0)) : v;
+        for (const k of map.keys()) pal.push([fill(k >> 16), fill((k >> 8) & 255), fill(k & 255)]);
+        const idx = frames.map((f) => { const o = new Uint8Array(f.length / 4); for (let i = 0, j = 0; i < f.length; i += 4, j++) o[j] = map.get(((f[i] >> sh) << 16) | ((f[i + 1] >> sh) << 8) | (f[i + 2] >> sh)); return o; });
+        return { pal, idx };
+      }
+    }
+    return null;
+  }
+  function lzwEncode(idx, minCode, out) {
+    const clear = 1 << minCode, eoi = clear + 1;
+    let size = minCode + 1, next = eoi + 1, dict = new Map();
+    let acc = 0, nb = 0;
+    const bytes = [];
+    const emit = (c) => { acc |= c << nb; nb += size; while (nb >= 8) { bytes.push(acc & 255); acc >>>= 8; nb -= 8; } };
+    emit(clear);
+    let w = idx[0];
+    for (let i = 1; i < idx.length; i++) {
+      const c = idx[i], key = (w << 8) | c;
+      const hit = dict.get(key);
+      if (hit !== undefined) { w = hit; continue; }
+      emit(w);
+      if (next < 4096) { dict.set(key, next++); if (next > (1 << size) && size < 12) size++; }
+      else { emit(clear); dict = new Map(); size = minCode + 1; next = eoi + 1; }
+      w = c;
+    }
+    emit(w); emit(eoi);
+    if (nb > 0) bytes.push(acc & 255);
+    out.push(minCode);
+    for (let i = 0; i < bytes.length; i += 255) { const n = Math.min(255, bytes.length - i); out.push(n); for (let k = 0; k < n; k++) out.push(bytes[i + k]); }
+    out.push(0);
+  }
+  function encodeGIF(frames, w, h, delays) {
+    const q = quantize(frames);
+    if (!q) throw new Error("Te veel kleuren");
+    let bits = 1;
+    while ((1 << bits) < Math.max(2, q.pal.length)) bits++;
+    const out = [];
+    const push16 = (v) => out.push(v & 255, (v >> 8) & 255);
+    for (const c of "GIF89a") out.push(c.charCodeAt(0));
+    push16(w); push16(h);
+    out.push(0x80 | ((bits - 1) << 4) | (bits - 1), 0, 0);
+    for (let i = 0; i < (1 << bits); i++) { const c = q.pal[i] || [0, 0, 0]; out.push(c[0], c[1], c[2]); }
+    out.push(0x21, 0xff, 11); for (const c of "NETSCAPE2.0") out.push(c.charCodeAt(0)); out.push(3, 1, 0, 0, 0);
+    q.idx.forEach((ix, n) => {
+      out.push(0x21, 0xf9, 4, 0x04); push16(Math.max(2, Math.round((delays[n] || 40) / 10))); out.push(0, 0);
+      out.push(0x2c); push16(0); push16(0); push16(w); push16(h); out.push(0);
+      lzwEncode(ix, Math.max(2, bits), out);
+    });
+    out.push(0x3b);
+    return new Uint8Array(out);
+  }
+
+  /* ---------- frame storage: all frames in one gzip-compressed buffer ---------- */
+  async function pack(frames) {
+    const n = frames.reduce((s, f) => s + f.length, 0), all = new Uint8Array(n);
+    let o = 0;
+    for (const f of frames) { all.set(f, o); o += f.length; }
+    try {
+      const cs = new CompressionStream("gzip");
+      return { gz: true, buf: await new Response(new Blob([all]).stream().pipeThrough(cs)).arrayBuffer() };
+    } catch (e) { return { gz: false, buf: all.buffer }; }
+  }
+  async function unpack(p, w, h) {
+    let buf = p.buf;
+    if (p.gz) buf = await new Response(new Blob([buf]).stream().pipeThrough(new DecompressionStream("gzip"))).arrayBuffer();
+    const all = new Uint8ClampedArray(buf), sz = w * h * 4, out = [];
+    for (let o = 0; o + sz <= all.length; o += sz) out.push(all.subarray(o, o + sz));
+    return out;
+  }
+
+  return { TINTS, SIZES, toGrid, gridFor, Renderer, drawText, textWidth, demos, encodeGIF, quantize, pack, unpack };
+})();
+</script>
+<script>/* DMD Player: the app (library, player, import, export). */
+"use strict";
+
+const $ = (s) => document.querySelector(s);
+const el = (tag, attrs = {}, ...kids) => {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k === "class") e.className = v; else if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (v === true) e.setAttribute(k, ""); else if (v !== false && v != null) e.setAttribute(k, v);
+  }
+  for (const k of kids.flat()) if (k != null) e.append(k.nodeType ? k : document.createTextNode(k));
+  return e;
+};
+const nf = new Intl.NumberFormat("en-GB");
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const Bridge = window.DMDApp || null; // set by the Android app
+
+/* ---------- settings ---------- */
+const SETTINGS_KEY = "dmd-speler-settings";
+const settings = Object.assign({ tint: "oranje", shape: "rond", glow: true, levels: 16, speed: 1, mode: "herhaal", current: null }, (() => {
+  try { return JSON.parse(localStorage.getItem(SETTINGS_KEY)) || {}; } catch (e) { return {}; }
+})());
+const saveSettings = () => { try { localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); } catch (e) { /* private mode */ } };
+const styleOf = () => ({ tint: settings.tint, shape: settings.shape, glow: settings.glow, levels: settings.levels });
+
+/* ---------- storage (IndexedDB, with a memory fallback) ---------- */
+const Store = (() => {
+  let db = null;
+  const mem = { meta: new Map(), frames: new Map() };
+  const open = () => new Promise((res) => {
+    try {
+      const r = indexedDB.open("dmd-speler", 1);
+      r.onupgradeneeded = () => { r.result.createObjectStore("meta", { keyPath: "id" }); r.result.createObjectStore("frames", { keyPath: "id" }); };
+      r.onsuccess = () => { db = r.result; res(true); };
+      r.onerror = () => res(false);
+    } catch (e) { res(false); }
+  });
+  const tx = (store, mode, fn) => new Promise((res, rej) => {
+    const t = db.transaction(store, mode), s = t.objectStore(store);
+    const r = fn(s);
+    t.oncomplete = () => res(r && r.result);
+    t.onerror = () => rej(t.error);
+    t.onabort = () => rej(t.error || new Error("Storage full?"));
+  });
+  return {
+    open,
+    get persistent() { return !!db; },
+    async all() { if (!db) return [...mem.meta.values()]; return tx("meta", "readonly", (s) => s.getAll()); },
+    async put(meta, packed) {
+      if (!db) { mem.meta.set(meta.id, meta); mem.frames.set(meta.id, packed); return; }
+      await tx("frames", "readwrite", (s) => s.put({ id: meta.id, ...packed }));
+      await tx("meta", "readwrite", (s) => s.put(meta));
+    },
+    async putMeta(meta) { if (!db) { mem.meta.set(meta.id, meta); return; } await tx("meta", "readwrite", (s) => s.put(meta)); },
+    async frames(id) { if (!db) return mem.frames.get(id); return tx("frames", "readonly", (s) => s.get(id)); },
+    async del(id) { if (!db) { mem.meta.delete(id); mem.frames.delete(id); return; } await tx("meta", "readwrite", (s) => s.delete(id)); await tx("frames", "readwrite", (s) => s.delete(id)); },
+  };
+})();
+
+/* ---------- library ---------- */
+let lib = [];
+const cache = new Map(); // id -> frames (most recent last)
+async function loadFrames(m) {
+  if (cache.has(m.id)) { const f = cache.get(m.id); cache.delete(m.id); cache.set(m.id, f); return f; }
+  const p = await Store.frames(m.id);
+  const f = p ? await DMD.unpack(p, m.w, m.h) : [];
+  cache.set(m.id, f);
+  while (cache.size > 4) cache.delete(cache.keys().next().value);
+  return f;
+}
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+async function addAnimation({ name, w, h, frames, delays, source }) {
+  const meta = { id: newId(), name, w, h, n: frames.length, delays, source: source || "", created: Date.now(), poster: frames[Math.floor(frames.length / 3)].slice().buffer };
+  await Store.put(meta, await DMD.pack(frames));
+  lib.push(meta);
+  cache.set(meta.id, frames);
+  return meta;
+}
+function sortLib() { lib.sort((a, b) => b.created - a.created); }
+
+/* ---------- player ---------- */
+const hero = new DMD.Renderer($("#hero"), styleOf());
+const fsR = new DMD.Renderer($("#fscv"), styleOf());
+const P = { meta: null, frames: [], i: 0, playing: true, acc: 0, last: 0, played: 0 };
+
+async function select(id, { play = true } = {}) {
+  const m = lib.find((x) => x.id === id) || lib[0];
+  if (!m) { P.meta = null; P.frames = []; showNow(); drawNow(); return; }
+  P.meta = m; P.frames = await loadFrames(m); P.i = 0; P.acc = 0; P.played = 0;
+  if (play) P.playing = true;
+  settings.current = m.id; saveSettings();
+  hero.setGrid(m.w, m.h); fsR.setGrid(m.w, m.h);
+  $("#hero").style.aspectRatio = m.w + " / " + m.h;
+  showNow(); drawNow(); markTiles();
+}
+function showNow() {
+  const m = P.meta;
+  $("#nowName").textContent = m ? m.name : "No animations yet";
+  $("#nowMeta").textContent = m ? `${m.w}×${m.h} · ${m.n} ${m.n === 1 ? "frame" : "frames"}` : "";
+  $("#fsname").textContent = m ? m.name : "";
+  $("#scrub").max = Math.max(0, P.frames.length - 1);
+  for (const b of ["#gifBtn", "#renameBtn", "#delBtn"]) $(b).disabled = !m;
+  setPlayIcon();
+}
+function setPlayIcon() {
+  const d = P.playing ? "M6 4h4v16H6zm8 0h4v16h-4z" : "M7 4l13 8-13 8z";
+  $("#playIcon").setAttribute("d", d); $("#fsPlayIcon").setAttribute("d", d);
+  $("#playBtn").setAttribute("aria-label", P.playing ? "Pause" : "Play");
+}
+function drawNow() {
+  const f = P.frames[P.i] || null;
+  if (document.body.classList.contains("fs")) fsR.draw(f); else hero.draw(f);
+  $("#scrub").value = P.i;
+  $("#fcount").textContent = P.frames.length ? `${P.i + 1}/${P.frames.length}` : "0/0";
+}
+function delayOf(i) { const d = P.meta && P.meta.delays ? P.meta.delays[i] : 66; return (d > 0 ? d : 66) / settings.speed; }
+function step(dir) {
+  if (!P.frames.length) return;
+  P.i = (P.i + dir + P.frames.length) % P.frames.length;
+  drawNow();
+}
+function loop(t) {
+  requestAnimationFrame(loop);
+  const dt = Math.min(250, t - (P.last || t));
+  P.last = t;
+  if (P.playing && P.frames.length > 1) {
+    P.acc += dt; P.played += dt;
+    let moved = false;
+    while (P.acc >= delayOf(P.i)) {
+      P.acc -= delayOf(P.i);
+      P.i++;
+      moved = true;
+      if (P.i >= P.frames.length) {
+        P.i = 0;
+        if (settings.mode !== "herhaal" && P.played > 4000 && lib.length > 1) { nextAnim(settings.mode === "shuffle" ? 0 : 1); return; }
+      }
+    }
+    if (moved) drawNow();
+  } else if (P.playing && P.frames.length === 1 && settings.mode !== "herhaal" && lib.length > 1) {
+    P.played += dt;
+    if (P.played > 4000) nextAnim(settings.mode === "shuffle" ? 0 : 1);
+  }
+  animateCands(dt);
+}
+function visibleLib() {
+  const q = $("#search").value.trim().toLowerCase();
+  return q ? lib.filter((m) => m.name.toLowerCase().includes(q)) : lib;
+}
+function nextAnim(dir) {
+  const list = lib;
+  if (!list.length) return;
+  let k = list.findIndex((m) => m === P.meta);
+  if (dir === 0) { let r; do { r = Math.floor(Math.random() * list.length); } while (list.length > 1 && r === k); k = r; }
+  else k = (k + dir + list.length) % list.length;
+  select(list[k].id);
+}
+
+/* ---------- controls ---------- */
+function seg(id, options, get, set) {
+  const box = $(id);
+  box.replaceChildren();
+  for (const [v, label] of options) {
+    box.append(el("button", { class: get() === v ? "on" : "", onclick: () => { set(v); saveSettings(); seg(id, options, get, set); } }, label));
+  }
+}
+function applyStyle() {
+  hero.setStyle(styleOf()); fsR.setStyle(styleOf());
+  drawNow(); drawTiles(); logo();
+}
+function buildControls() {
+  seg("#speedSeg", [[0.5, "½×"], [1, "1×"], [1.5, "1½×"], [2, "2×"], [3, "3×"]], () => settings.speed, (v) => { settings.speed = v; });
+  seg("#modeSeg", [["herhaal", "Repeat"], ["volgende", "All"], ["shuffle", "Shuffle"]], () => settings.mode, (v) => { settings.mode = v; P.played = 0; });
+  seg("#shapeSeg", [["rond", "Round"], ["vierkant", "Square"]], () => settings.shape, (v) => { settings.shape = v; applyStyle(); });
+  seg("#glowSeg", [[true, "Glow"], [false, "Sharp"]], () => settings.glow, (v) => { settings.glow = v; applyStyle(); });
+  seg("#levelSeg", [[4, "4"], [16, "16"], [256, "Smooth"]], () => settings.levels, (v) => { settings.levels = v; applyStyle(); });
+  const sw = $("#tintSw");
+  sw.replaceChildren();
+  for (const [k, t] of Object.entries(DMD.TINTS)) {
+    const b = el("button", { class: "sw " + (k === "kleur" ? "kleur " : "") + (settings.tint === k ? "on" : ""), title: t.label, "aria-label": t.label,
+      onclick: () => { settings.tint = k; saveSettings(); buildControls(); applyStyle(); } });
+    if (t.rgb) b.style.background = `rgb(${t.rgb.join(",")})`;
+    sw.append(b);
+  }
+}
+$("#playBtn").onclick = $("#fsPlay").onclick = () => { P.playing = !P.playing; setPlayIcon(); };
+$("#prevF").onclick = () => { P.playing = false; setPlayIcon(); step(-1); };
+$("#nextF").onclick = () => { P.playing = false; setPlayIcon(); step(1); };
+$("#scrub").oninput = (e) => { P.playing = false; setPlayIcon(); P.i = +e.target.value; drawNow(); };
+$("#search").oninput = () => renderGrid();
+
+/* ---------- library grid ---------- */
+const tileR = new Map(); // id -> renderer
+function renderGrid() {
+  const grid = $("#grid");
+  grid.replaceChildren();
+  tileR.clear();
+  const list = visibleLib();
+  $("#libCount").textContent = lib.length ? "(" + lib.length + ")" : "";
+  if (!list.length) { grid.append(el("div", { class: "empty" }, lib.length ? "Nothing found." : "The library is empty. Import a table or a GIF.")); return; }
+  for (const m of list) {
+    const cv = el("canvas");
+    const t = el("button", { class: "tile" + (P.meta && P.meta.id === m.id ? " on" : ""), "data-id": m.id, onclick: () => select(m.id) },
+      cv, el("b", {}, m.name), el("span", {}, `${m.n} ${m.n === 1 ? "frame" : "frames"} · ${m.w}×${m.h}${m.source ? " · " + m.source : ""}`));
+    grid.append(t);
+    const r = new DMD.Renderer(cv, styleOf());
+    r.setGrid(m.w, m.h);
+    cv.style.aspectRatio = m.w + " / " + m.h;
+    tileR.set(m.id, { r, m });
+  }
+  requestAnimationFrame(drawTiles);
+}
+function drawTiles() {
+  for (const { r, m } of tileR.values()) { r.setStyle(styleOf()); r.draw(new Uint8ClampedArray(m.poster)); }
+}
+function markTiles() { document.querySelectorAll(".tile").forEach((t) => t.classList.toggle("on", !!P.meta && t.dataset.id === P.meta.id)); }
+
+/* logo: "DMD PLAYER" on its own little display */
+const logoR = new DMD.Renderer($("#logo"), { glow: true, levels: 16 });
+function logo() {
+  const w = 61, h = 9, buf = new Float32Array(w * h);
+  DMD.drawText(buf, w, h, "DMD PLAYER", 1, 1, 1, 1);
+  const f = new Uint8ClampedArray(w * h * 4);
+  for (let i = 0; i < buf.length; i++) { f[i * 4] = f[i * 4 + 1] = f[i * 4 + 2] = buf[i] * 255; f[i * 4 + 3] = 255; }
+  logoR.setGrid(w, h);
+  logoR.setStyle({ tint: settings.tint === "kleur" ? "oranje" : settings.tint, shape: settings.shape });
+  $("#logo").style.width = "122px"; $("#logo").style.height = "18px";
+  logoR.draw(f);
+}
+
+/* ---------- dialogs and toast ---------- */
+function ask(title, body, yes = "OK", withInput = null) {
+  return new Promise((res) => {
+    const d = $("#dlg");
+    $("#dlgTitle").textContent = title;
+    const b = $("#dlgBody");
+    b.replaceChildren();
+    let inp = null;
+    if (body) b.append(el("p", { class: "note" }, body));
+    if (withInput != null) { inp = el("input", { type: "text", value: withInput }); b.append(inp); }
+    $("#dlgYes").textContent = yes;
+    const done = (v) => { d.close(); $("#dlgYes").onclick = $("#dlgNo").onclick = null; res(v); };
+    $("#dlgYes").onclick = () => done(inp ? inp.value.trim() || null : true);
+    $("#dlgNo").onclick = () => done(null);
+    d.oncancel = (e) => { e.preventDefault(); done(null); };
+    d.showModal();
+    if (inp) { inp.focus(); inp.select(); inp.onkeydown = (e) => { if (e.key === "Enter") $("#dlgYes").click(); }; }
+  });
+}
+let toastT = 0;
+function toast(msg, ms = 2600) {
+  const t = $("#toast");
+  t.textContent = msg; t.hidden = false;
+  clearTimeout(toastT);
+  toastT = setTimeout(() => (t.hidden = true), ms);
+}
+
+$("#renameBtn").onclick = async () => {
+  if (!P.meta) return;
+  const v = await ask("Rename", null, "Save", P.meta.name);
+  if (!v) return;
+  P.meta.name = v;
+  await Store.putMeta(P.meta);
+  showNow(); renderGrid();
+};
+$("#delBtn").onclick = async () => {
+  if (!P.meta) return;
+  if (!(await ask("Delete?", `“${P.meta.name}” will be removed from the library.`, "Delete"))) return;
+  const k = lib.indexOf(P.meta);
+  await Store.del(P.meta.id);
+  cache.delete(P.meta.id);
+  lib.splice(k, 1);
+  renderGrid();
+  await select(lib[Math.min(k, lib.length - 1)] ? lib[Math.min(k, lib.length - 1)].id : null);
+};
+
+/* ---------- GIF export ---------- */
+function toBase64(bytes) {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+function saveBytes(name, mime, bytes) {
+  if (Bridge && Bridge.saveFile) { Bridge.saveFile(name, mime, toBase64(bytes)); return; }
+  const a = el("a", { href: URL.createObjectURL(new Blob([bytes], { type: mime })), download: name });
+  document.body.append(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  toast("Saved as " + name);
+}
+window.onSaved = (ok) => toast(ok ? "GIF saved" : "Not saved");
+$("#gifBtn").onclick = async () => {
+  const m = P.meta;
+  if (!m) return;
+  $("#gifBtn").disabled = true;
+  toast("Making GIF…", 20000);
+  await sleep(30);
+  try {
+    const p = Math.max(2, Math.min(6, Math.floor(768 / m.w)));
+    const cv = document.createElement("canvas");
+    const r = new DMD.Renderer(cv, Object.assign(styleOf(), { glow: false, fixedSize: { w: m.w * p, h: m.h * p } }));
+    r.setGrid(m.w, m.h);
+    const ctx = cv.getContext("2d", { willReadFrequently: true });
+    const frames = P.frames.slice(0, 600).map((f) => { r.draw(f); return ctx.getImageData(0, 0, cv.width, cv.height).data; });
+    const delays = P.frames.slice(0, 600).map((_, i) => (m.delays[i] > 0 ? m.delays[i] : 66) / settings.speed);
+    const gif = DMD.encodeGIF(frames, cv.width, cv.height, delays);
+    saveBytes(m.name.replace(/[^\w\- ]+/g, "").trim().replace(/\s+/g, "_") + ".gif", "image/gif", gif);
+  } catch (e) { toast("Could not make the GIF: " + e.message); }
+  $("#gifBtn").disabled = false;
+};
+
+/* ---------- fullscreen ---------- */
+let barT = 0;
+function showBar() {
+  $("#fsbar").classList.remove("hide"); $("#fsname").classList.remove("hide");
+  clearTimeout(barT);
+  barT = setTimeout(() => { $("#fsbar").classList.add("hide"); $("#fsname").classList.add("hide"); }, 2800);
+}
+function enterFS() {
+  if (!P.meta) return;
+  document.body.classList.add("fs");
+  if (Bridge && Bridge.setFullscreen) Bridge.setFullscreen(true);
+  else {
+    const d = document.documentElement;
+    if (d.requestFullscreen) d.requestFullscreen().then(() => screen.orientation && screen.orientation.lock && screen.orientation.lock("landscape").catch(() => {})).catch(() => {});
+  }
+  fsR.mask = null;
+  setTimeout(() => { fsR.mask = null; drawNow(); }, 250);
+  drawNow(); showBar();
+}
+function exitFS() {
+  document.body.classList.remove("fs");
+  if (Bridge && Bridge.setFullscreen) Bridge.setFullscreen(false);
+  else if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  setTimeout(() => { hero.mask = null; drawNow(); drawTiles(); }, 250);
+  drawNow();
+}
+$("#fsBtn").onclick = enterFS;
+$("#hero").onclick = enterFS;
+$("#fsExit").onclick = exitFS;
+$("#fsPrev").onclick = (e) => { e.stopPropagation(); nextAnim(-1); showBar(); };
+$("#fsNext").onclick = (e) => { e.stopPropagation(); nextAnim(1); showBar(); };
+$("#fsview").onclick = (e) => { if (e.target === $("#fscv")) showBar(); };
+document.addEventListener("fullscreenchange", () => { if (!document.fullscreenElement && document.body.classList.contains("fs") && !Bridge) exitFS(); });
+let swipeX = null;
+$("#fscv").addEventListener("touchstart", (e) => { swipeX = e.touches[0].clientX; }, { passive: true });
+$("#fscv").addEventListener("touchend", (e) => {
+  if (swipeX == null) return;
+  const dx = e.changedTouches[0].clientX - swipeX;
+  swipeX = null;
+  if (Math.abs(dx) > 60) nextAnim(dx < 0 ? 1 : -1);
+});
+window.addEventListener("resize", () => { hero.mask = null; fsR.mask = null; drawNow(); drawTiles(); });
+document.addEventListener("keydown", (e) => {
+  if (e.target.tagName === "INPUT" || $("#dlg").open) return;
+  if (e.key === " ") { e.preventDefault(); $("#playBtn").click(); }
+  else if (e.key === "ArrowRight") nextAnim(1);
+  else if (e.key === "ArrowLeft") nextAnim(-1);
+  else if (e.key === "f") document.body.classList.contains("fs") ? exitFS() : enterFS();
+  else if (e.key === "Escape" && document.body.classList.contains("fs")) exitFS();
+});
+
+/* ---------- import ---------- */
+const MAX_DMD_W = 1024, MAX_OTHER = 256;
+let imp = null; // { items, groups, cands: [...], previews: [...] }
+
+// shrink big pictures right away so a table with hundreds of textures fits in memory
+function shrinkItem(it) {
+  const dmd = Formats.dmdLike(it.w, it.h);
+  const lim = dmd ? MAX_DMD_W : MAX_OTHER;
+  const s = Math.min(1, lim / Math.max(it.w, it.h));
+  if (s >= 1) return it;
+  const w = Math.max(1, Math.round(it.w * s)), h = Math.max(1, Math.round(it.h * s));
+  it.frames = it.frames.map((f) => ({ data: DMD.toGrid({ w: it.w, h: it.h, data: f.data }, w, h, "contain"), delay: f.delay }));
+  it.origW = it.w; it.origH = it.h; it.w = w; it.h = h;
+  return it;
+}
+function gridChoice(w, h) {
+  const v = $("#gridSel").value;
+  if (v !== "auto") return v.split("x").map(Number);
+  return DMD.gridFor(w, h);
+}
+// all frames (with delays) of a candidate, resampled to its grid
+function candFrames(c) {
+  const key = $("#gridSel").value;
+  if (c.cacheKey === key) return c.cache;
+  const first = c.items[0];
+  const [gw, gh] = gridChoice(first.origW || first.w, first.origH || first.h);
+  const fit = Formats.dmdLike(first.w, first.h) ? "contain" : "cover";
+  const frames = [], delays = [];
+  for (const it of c.items) for (const f of it.frames) {
+    frames.push(DMD.toGrid({ w: it.w, h: it.h, data: f.data }, gw, gh, fit));
+    delays.push(f.delay > 0 ? f.delay : 66);
+  }
+  c.cache = { gw, gh, frames, delays }; c.cacheKey = key;
+  return c.cache;
+}
+
+async function startImport(files) {
+  if (!files.length) return;
+  $("#importSheet").hidden = false;
+  $("#impFoot").hidden = true;
+  const body = $("#impBody");
+  const bar = el("i");
+  const status = el("p", { class: "note" }, "Reading files…");
+  body.replaceChildren(el("p", {}, files.length === 1 ? files[0].name : files.length + " files"), el("div", { class: "progress" }, bar), status);
+  imp = { items: [], cands: [], previews: [], summary: [] };
+  let skipped = 0;
+  for (let k = 0; k < files.length; k++) {
+    const f = files[k];
+    try {
+      const res = await Formats.scan(Formats.fileSource(f), (it) => {
+        if (it.kind === "image") imp.items.push(shrinkItem(it));
+        else if (it.kind === "list") imp.items.push(it);
+        else skipped++;
+      }, (i, n, name) => {
+        bar.style.width = (((k + (n ? i / n : 1)) / files.length) * 100).toFixed(1) + "%";
+        status.textContent = `${name}: ${i} of ${n}`;
+      });
+      if (res.table === "vp" || res.table === "fp") imp.summary.push(`${f.name}: ${res.images} images in the table${res.lists ? ", " + res.lists + (res.lists === 1 ? " image list" : " image lists") : ""}.`);
+    } catch (e) {
+      imp.summary.push(`${f.name}: could not be read (${e.message || e}).`);
+    }
+    await sleep(0);
+  }
+  bar.style.width = "100%";
+  showResults(skipped);
+}
+
+function showResults(skipped) {
+  const g = Formats.group(imp.items);
+  const body = $("#impBody");
+  body.replaceChildren();
+  imp.cands = []; imp.previews = [];
+  for (const s of imp.summary) body.append(el("p", { class: "note" }, s));
+  if (skipped) body.append(el("p", { class: "warn" }, `${skipped} ${skipped === 1 ? "item" : "items"} could not be read as an image and ${skipped === 1 ? "was" : "were"} skipped.`));
+  const total = g.anims.length + g.singles.length + g.others.length;
+  if (!total) {
+    body.append(el("div", { class: "tip" }, el("b", {}, "No images found. "),
+      "Many Visual Pinball recreations of real machines get their DMD from a PinMAME ROM; those animations are not in the table file. Tables that use FlexDMD or UltraDMD often keep their animations in a separate folder next to the table: put that folder in a ZIP and import it."));
+    return;
+  }
+  const row = (c, checked) => {
+    const cv = el("canvas");
+    const cb = el("input", { type: "checkbox", checked, onchange: updateSel, "aria-label": "Select" });
+    const name = el("input", { type: "text", value: c.name, "aria-label": "Name", oninput: (e) => (c.name = e.target.value) });
+    const frames = c.items.reduce((s, it) => s + it.frames.length, 0), first = c.items[0];
+    const meta = el("span", {}, `${frames} ${frames === 1 ? "frame" : "frames"} · ${first.origW || first.w}×${first.origH || first.h}${c.reason ? " · " + c.reason : ""}`);
+    c.cb = cb;
+    const r = new DMD.Renderer(cv, styleOf());
+    imp.previews.push({ c, r, i: 0, acc: 0 });
+    return el("div", { class: "cand" }, cb, cv, el("div", { class: "nm" }, name, meta));
+  };
+  if (g.anims.length) {
+    body.append(el("div", { class: "sec" }, `Animations (${g.anims.length})`));
+    const box = el("div", { class: "found" });
+    for (const a of g.anims) { const c = { name: a.name, items: a.items, reason: a.reason, kind: "anim" }; imp.cands.push(c); box.append(row(c, Formats.dmdLike(a.items[0].w, a.items[0].h))); }
+    body.append(box);
+  }
+  if (g.singles.length) {
+    const box = el("div", { class: "found" });
+    const cs = g.singles.map((im) => ({ name: im.name.replace(/\.[a-z]{3,4}$/i, ""), items: [im], reason: "", kind: "single" }));
+    body.append(el("div", { class: "sec" }, `Single DMD images (${cs.length})`,
+      el("button", { class: "btn ghost", onclick: () => { const on = !cs.every((c) => c.cb.checked); cs.forEach((c) => (c.cb.checked = on)); updateSel(); } }, "Toggle all")));
+    for (const c of cs) { imp.cands.push(c); box.append(row(c, false)); }
+    body.append(box);
+  }
+  if (g.others.length) {
+    const det = el("details", {}, el("summary", { class: "sec", style: "cursor:pointer" }, `Other images (${g.others.length}) — playfield, backglass, textures…`));
+    const box = el("div", { class: "thumbs" });
+    for (const im of g.others) {
+      const c = { name: im.name.replace(/\.[a-z]{3,4}$/i, ""), items: [im], reason: "", kind: "other" };
+      imp.cands.push(c);
+      const cv = el("canvas", { width: im.w, height: im.h });
+      cv.getContext("2d").putImageData(new ImageData(new Uint8ClampedArray(im.frames[0].data), im.w, im.h), 0, 0);
+      c.cb = el("input", { type: "checkbox", onchange: updateSel, "aria-label": c.name });
+      box.append(el("label", { class: "thumb" }, cv, c.cb, el("span", {}, `${c.name} · ${im.origW || im.w}×${im.origH || im.h}`)));
+    }
+    det.append(box, el("p", { class: "note" }, "Pick images here to view them as a DMD image or to merge them into an animation."));
+    body.append(det);
+  }
+  $("#impFoot").hidden = false;
+  updateSel();
+}
+function updateSel() {
+  if (!imp) return;
+  const sel = imp.cands.filter((c) => c.cb && c.cb.checked);
+  $("#selInfo").textContent = sel.length ? `${sel.length} selected` : "Nothing selected";
+  $("#saveBtn").textContent = sel.length > 1 ? `Save (${sel.length})` : "Save";
+  $("#saveBtn").disabled = !sel.length;
+  $("#mergeBtn").disabled = sel.length < 2;
+}
+function animateCands(dt) {
+  if (!imp || $("#importSheet").hidden) return;
+  for (const p of imp.previews) {
+    const cf = candFrames(p.c);
+    if (p.r.gw !== cf.gw || p.r.gh !== cf.gh) { p.r.setGrid(cf.gw, cf.gh); p.r.cv.style.aspectRatio = cf.gw + " / " + cf.gh; p.i = 0; p.drawn = false; }
+    p.acc += dt;
+    let moved = !p.drawn;
+    if (cf.frames.length > 1) while (p.acc >= cf.delays[p.i] / settings.speed) { p.acc -= cf.delays[p.i] / settings.speed; p.i = (p.i + 1) % cf.frames.length; moved = true; }
+    if (moved) { p.r.draw(cf.frames[p.i]); p.drawn = true; }
+  }
+}
+$("#gridSel").onchange = () => { if (imp) imp.previews.forEach((p) => (p.drawn = false)); };
+async function saveCands(merge) {
+  const sel = imp.cands.filter((c) => c.cb && c.cb.checked);
+  if (!sel.length) return;
+  const made = [];
+  if (merge) {
+    const name = await ask("Merge", `${sel.length} items become one animation, in the order of the list.`, "Merge", sel[0].name);
+    if (!name) return;
+    const first = candFrames(sel[0]);
+    const frames = [], delays = [];
+    for (const c of sel) {
+      const fit = Formats.dmdLike(c.items[0].w, c.items[0].h) ? "contain" : "cover";
+      for (const it of c.items) for (const f of it.frames) { frames.push(DMD.toGrid({ w: it.w, h: it.h, data: f.data }, first.gw, first.gh, fit)); delays.push(f.delay > 0 ? f.delay : 66); }
+    }
+    made.push(await addAnimation({ name, w: first.gw, h: first.gh, frames, delays, source: sel[0].items[0].origin }));
+  } else {
+    for (const c of sel) {
+      const cf = candFrames(c);
+      made.push(await addAnimation({ name: c.name.trim() || "Animation", w: cf.gw, h: cf.gh, frames: cf.frames, delays: cf.delays, source: c.items[0].origin }));
+    }
+  }
+  closeImport();
+  sortLib(); renderGrid();
+  await select(made[0].id);
+  toast(made.length === 1 ? `“${made[0].name}” saved` : `${made.length} animations saved`);
+}
+$("#saveBtn").onclick = () => saveCands(false).catch((e) => toast("Saving failed: " + e.message, 5000));
+$("#mergeBtn").onclick = () => saveCands(true).catch((e) => toast("Saving failed: " + e.message, 5000));
+function closeImport() { $("#importSheet").hidden = true; imp = null; $("#impBody").replaceChildren(); }
+$("#impClose").onclick = closeImport;
+$("#importBtn").onclick = () => { $("#fileIn").value = ""; $("#fileIn").click(); };
+$("#fileIn").onchange = (e) => startImport([...e.target.files]);
+// drag and drop on desktop
+document.addEventListener("dragover", (e) => e.preventDefault());
+document.addEventListener("drop", (e) => { e.preventDefault(); if (e.dataTransfer.files.length) startImport([...e.dataTransfer.files]); });
+
+/* ---------- back button (Android) ---------- */
+window.atlasBack = () => {
+  if ($("#dlg").open) { $("#dlgNo").click(); return true; }
+  if (document.body.classList.contains("fs")) { exitFS(); return true; }
+  if (!$("#importSheet").hidden) { closeImport(); return true; }
+  return false;
+};
+window.dmdFullscreenEnded = () => { if (document.body.classList.contains("fs")) exitFS(); };
+
+/* ---------- start ---------- */
+(async () => {
+  buildControls();
+  logo();
+  await Store.open();
+  lib = await Store.all();
+  let demosDone = false;
+  let demoVer = null;
+  try { demoVer = localStorage.getItem("dmd-speler-demos"); demosDone = demoVer === "2"; } catch (e) { /* ignore */ }
+  if (demoVer === "1") {
+    // the first version had Dutch demos; swap them for the English ones
+    for (const m of lib.filter((x) => x.source === "Demo")) await Store.del(m.id);
+    lib = lib.filter((x) => x.source !== "Demo");
+    let t = 1000;
+    for (const d of DMD.demos().reverse()) { const m = await addAnimation(d); m.created = t++; await Store.putMeta(m); }
+    demosDone = true;
+    try { localStorage.setItem("dmd-speler-demos", "2"); } catch (e) { /* ignore */ }
+  }
+  if (!lib.length && !demosDone) {
+    let t = 1000;
+    for (const d of DMD.demos().reverse()) { const m = await addAnimation(d); m.created = t++; await Store.putMeta(m); }
+    try { localStorage.setItem("dmd-speler-demos", "2"); } catch (e) { /* ignore */ }
+  }
+  sortLib();
+  renderGrid();
+  await select(settings.current);
+  requestAnimationFrame(loop);
+  if (!Store.persistent) toast("Note: storage is not available, the library will not be kept.", 5000);
+})();
+</script>
+</body>
+</html>

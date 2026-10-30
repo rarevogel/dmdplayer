@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0e0c0b">
+<title>DMD Player</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@400;500;600;700&display=swap">
+<style>
+:root {
+  --bg: #0e0c0b; --panel: #171412; --card: #1f1b18; --card-2: #29231f; --line: #352d27;
+  --ink: #f4ebe1; --ink-2: #c4b6a8; --ink-3: #8d7f72; --accent: #ff6a1a; --accent-2: #ff9a4d; --danger: #ff5a4a;
+  --font: "Chakra Petch", system-ui, sans-serif; --r: 14px;
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; min-height: 100%; background: var(--bg); color: var(--ink); font: 15px/1.4 var(--font); overscroll-behavior: none; }
+button, input, select { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+
+#app { display: grid; grid-template-columns: 1fr; gap: 0; min-height: 100vh; padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0); }
+#left { padding: 12px 14px 6px; }
+#right { padding: 6px 14px 28px; }
+@media (min-width: 900px) and (orientation: landscape) {
+  #app { grid-template-columns: minmax(520px, 1.25fr) 1fr; height: 100vh; }
+  #left { overflow: auto; padding: 18px 20px; border-right: 1px solid var(--line); }
+  #right { overflow: auto; padding: 18px 20px 30px; }
+}
+
+header.top { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand canvas { width: 116px; height: 29px; display: block; border-radius: 4px; }
+.brand span { font-size: 12px; color: var(--ink-3); letter-spacing: .06em; text-transform: uppercase; }
+
+/* the big display */
+.cabinet { position: relative; background: #000; border-radius: 16px; padding: 10px; box-shadow: inset 0 0 0 1px #2a2420, 0 10px 30px rgb(0 0 0 / .45); }
+.cabinet::before { content: ""; position: absolute; inset: 4px; border-radius: 12px; border: 1px solid #1d1916; pointer-events: none; }
+#hero { width: 100%; aspect-ratio: 4 / 1; display: block; border-radius: 6px; touch-action: manipulation; }
+.nowrow { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 12px 2px 8px; }
+.nowrow h1 { margin: 0; font-size: 21px; font-weight: 600; line-height: 1.15; overflow-wrap: anywhere; }
+.nowrow .meta { font-size: 12.5px; color: var(--ink-3); white-space: nowrap; }
+
+.transport { display: flex; align-items: center; gap: 8px; }
+.ib { width: 46px; height: 46px; flex: none; border-radius: 50%; border: 0; background: var(--card); display: grid; place-items: center; }
+.ib svg { width: 22px; height: 22px; fill: currentColor; }
+.ib.big { width: 56px; height: 56px; background: var(--accent); color: #1a0d04; }
+.ib.big svg { width: 26px; height: 26px; }
+.ib:active { transform: scale(.96); }
+#scrub { flex: 1; min-width: 60px; accent-color: var(--accent); }
+.fcount { font-size: 12px; color: var(--ink-3); min-width: 54px; text-align: right; font-variant-numeric: tabular-nums; }
+
+.rows { display: grid; gap: 10px; margin-top: 14px; }
+.row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.row > label { font-size: 12px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink-3); width: 76px; flex: none; }
+.seg { display: inline-flex; background: var(--card); border-radius: 999px; padding: 3px; gap: 2px; flex-wrap: wrap; }
+.seg button { border: 0; background: none; padding: 7px 12px; border-radius: 999px; font-size: 13.5px; font-weight: 500; color: var(--ink-2); min-height: 36px; }
+.seg button.on { background: var(--card-2); color: var(--ink); box-shadow: inset 0 0 0 1px #4a3e35; }
+.swatches { display: flex; gap: 8px; flex-wrap: wrap; }
+.sw { width: 32px; height: 32px; border-radius: 50%; border: 2px solid transparent; padding: 0; position: relative; }
+.sw.on { border-color: var(--ink); }
+.sw.kleur { background: conic-gradient(#ff3b30, #ffcc00, #34c759, #0a84ff, #bf5af2, #ff3b30); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 16px; }
+.btn { border: 0; border-radius: 999px; padding: 10px 16px; min-height: 42px; background: var(--card); font-weight: 600; font-size: 14px; display: inline-flex; align-items: center; gap: 7px; }
+.btn svg { width: 18px; height: 18px; fill: currentColor; }
+.btn.main { background: var(--accent); color: #1a0d04; }
+.btn.ghost { background: none; box-shadow: inset 0 0 0 1px var(--line); }
+.btn.danger { color: var(--danger); }
+.btn:disabled { opacity: .45; }
+
+/* library */
+.libhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 10px 0 12px; }
+.libhead h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.libhead h2 small { color: var(--ink-3); font-weight: 500; font-size: 14px; }
+#search { width: 100%; padding: 10px 14px; border-radius: 999px; border: 0; background: var(--card); margin-bottom: 12px; outline: none; }
+#search:focus { box-shadow: inset 0 0 0 2px #4a3e35; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
+.tile { background: var(--card); border-radius: 12px; padding: 7px 7px 9px; border: 0; text-align: left; display: block; width: 100%; }
+.tile.on { box-shadow: inset 0 0 0 2px var(--accent); }
+.tile canvas { width: 100%; aspect-ratio: 4 / 1; display: block; border-radius: 6px; background: #000; }
+.tile b { display: block; font-weight: 600; font-size: 13.5px; margin: 6px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.tile span { display: block; font-size: 11.5px; color: var(--ink-3); margin: 1px 2px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.empty { color: var(--ink-3); padding: 18px 4px; }
+.tip { margin-top: 18px; padding: 12px 14px; background: var(--panel); border-radius: 12px; color: var(--ink-2); font-size: 13.5px; }
+.tip b { color: var(--ink); }
+
+/* sheets */
+.sheet { position: fixed; inset: 0; z-index: 40; background: var(--bg); display: flex; flex-direction: column; padding: env(safe-area-inset-top, 0) env(safe-area-inset-right, 0) env(safe-area-inset-bottom, 0) env(safe-area-inset-left, 0); }
+.sheet header { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line); }
+.sheet header h2 { margin: 0; font-size: 18px; font-weight: 600; flex: 1; }
+.sheet .body { flex: 1; overflow: auto; padding: 14px; max-width: 980px; width: 100%; margin: 0 auto; }
+.sheet footer { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; padding: 10px 14px; border-top: 1px solid var(--line); background: var(--panel); }
+.progress { height: 8px; border-radius: 4px; background: var(--card); overflow: hidden; margin: 10px 0 6px; }
+.progress i { display: block; height: 100%; width: 0; background: var(--accent); transition: width .2s; }
+.found { display: grid; gap: 8px; }
+.sec { margin: 18px 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink-3); display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.sec button { text-transform: none; letter-spacing: 0; font-size: 13px; }
+.cand { display: grid; grid-template-columns: 30px minmax(110px, 200px) 1fr; gap: 10px; align-items: center; background: var(--card); border-radius: 12px; padding: 8px 10px; }
+.cand input[type=checkbox] { width: 22px; height: 22px; accent-color: var(--accent); }
+.cand canvas { width: 100%; aspect-ratio: 4 / 1; display: block; border-radius: 5px; background: #000; }
+.cand .nm { min-width: 0; }
+.cand .nm input { width: 100%; background: transparent; border: 0; border-bottom: 1px solid var(--line); padding: 3px 0; font-weight: 600; outline: none; }
+.cand .nm span { display: block; font-size: 12px; color: var(--ink-3); margin-top: 3px; }
+.thumbs { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.thumb { position: relative; background: var(--card); border-radius: 10px; padding: 5px; }
+.thumb canvas { width: 100%; height: 64px; object-fit: contain; display: block; }
+.thumb input { position: absolute; top: 6px; left: 6px; width: 20px; height: 20px; accent-color: var(--accent); }
+.thumb span { display: block; font-size: 10.5px; color: var(--ink-3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-top: 3px; }
+.note { color: var(--ink-2); font-size: 13.5px; }
+.warn { color: var(--accent-2); font-size: 13px; }
+select { background: var(--card); border: 0; border-radius: 999px; padding: 8px 12px; }
+
+/* fullscreen */
+body.fs { overflow: hidden; }
+body.fs #fsview { display: flex; }
+#fsview { position: fixed; inset: 0; z-index: 60; background: #000; display: none; align-items: center; justify-content: center; }
+#fscv { width: 100vw; height: 100vh; display: block; }
+#fsbar { position: absolute; left: 0; right: 0; bottom: 0; display: flex; justify-content: center; gap: 10px; padding: 14px; background: linear-gradient(transparent, rgb(0 0 0 / .8)); transition: opacity .25s; }
+#fsbar.hide { opacity: 0; pointer-events: none; }
+#fsname { position: absolute; top: 12px; left: 16px; color: #fff; opacity: .7; font-size: 14px; transition: opacity .25s; }
+#fsname.hide { opacity: 0; }
+
+#toast { position: fixed; left: 50%; bottom: calc(22px + env(safe-area-inset-bottom, 0)); transform: translateX(-50%); background: #f4ebe1; color: #1a120c; padding: 10px 16px; border-radius: 999px; font-weight: 600; font-size: 14px; z-index: 90; box-shadow: 0 6px 20px rgb(0 0 0 / .4); max-width: calc(100vw - 32px); }
+dialog { background: var(--panel); color: var(--ink); border: 0; border-radius: 16px; padding: 18px; width: min(420px, calc(100vw - 32px)); }
+dialog::backdrop { background: rgb(0 0 0 / .6); }
+dialog h3 { margin: 0 0 10px; font-size: 18px; }
+dialog input[type=text] { width: 100%; padding: 10px 12px; border-radius: 10px; border: 0; background: var(--card); outline: none; }
+dialog .actions { justify-content: flex-end; }
+</style>
+</head>
+<body>
+<div id="app">
+  <section id="left">
+    <header class="top">
+      <div class="brand"><canvas id="logo" aria-label="DMD Player"></canvas><span>pinball animations</span></div>
+      <button class="btn main" id="importBtn"><svg viewBox="0 0 24 24"><path d="M11 4h2v7h7v2h-7v7h-2v-7H4v-2h7z"/></svg>Import</button>
+    </header>
+    <div class="cabinet"><canvas id="hero" title="Tap for full screen"></canvas></div>
+    <div class="nowrow"><h1 id="nowName">…</h1><span class="meta" id="nowMeta"></span></div>
+    <div class="transport">
+      <button class="ib" id="prevF" aria-label="Previous frame"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+      <button class="ib big" id="playBtn" aria-label="Play"><svg viewBox="0 0 24 24"><path id="playIcon" d="M7 4l13 8-13 8z"/></svg></button>
+      <button class="ib" id="nextF" aria-label="Next frame"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+      <input type="range" id="scrub" min="0" max="0" value="0" aria-label="Frame">
+      <span class="fcount" id="fcount">0/0</span>
+      <button class="ib" id="fsBtn" aria-label="Full screen"><svg viewBox="0 0 24 24"><path d="M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z"/></svg></button>
+    </div>
+    <div class="rows">
+      <div class="row"><label>Speed</label><div class="seg" id="speedSeg"></div></div>
+      <div class="row"><label>Playback</label><div class="seg" id="modeSeg"></div></div>
+      <div class="row"><label>Colour</label><div class="swatches" id="tintSw"></div></div>
+      <div class="row"><label>Dots</label><div class="seg" id="shapeSeg"></div><div class="seg" id="glowSeg"></div></div>
+      <div class="row"><label>Shades</label><div class="seg" id="levelSeg"></div></div>
+    </div>
+    <div class="actions">
+      <button class="btn" id="gifBtn"><svg viewBox="0 0 24 24"><path d="M11 4h2v9.2l3.6-3.6 1.4 1.4-6 6-6-6 1.4-1.4 3.6 3.6zM5 18h14v2H5z"/></svg>Save GIF</button>
+      <button class="btn ghost" id="renameBtn">Rename</button>
+      <button class="btn ghost danger" id="delBtn">Delete</button>
+    </div>
+  </section>
+  <section id="right">
+    <div class="libhead"><h2>Library <small id="libCount"></small></h2></div>
+    <input id="search" type="search" placeholder="Search…" autocomplete="off">
+    <div class="grid" id="grid"></div>
+    <div class="tip"><b>Getting animations out of a table:</b> tap <b>Import</b> and choose a <b>.vpx</b> or <b>.vpt</b> (Visual Pinball) or <b>.fpt</b> (Future Pinball) file. The app looks for the DMD images in the table and suggests animations. Loose <b>GIF</b>s, images, <b>ZIP</b> folders (such as FlexDMD/UltraDMD folders) and PinMAME/DMDExt dumps (<b>.txt</b>) work too.</div>
+  </section>
+</div>
+
+<div class="sheet" id="importSheet" hidden>
+  <header><button class="ib" id="impClose" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z"/></svg></button><h2>Import</h2>
+    <select id="gridSel" aria-label="Resolution"><option value="auto">Resolution: automatic</option><option value="128x32">128 × 32</option><option value="192x64">192 × 64</option><option value="256x64">256 × 64</option></select></header>
+  <div class="body" id="impBody"></div>
+  <footer id="impFoot" hidden>
+    <span class="note" id="selInfo" style="margin-right:auto;align-self:center"></span>
+    <button class="btn ghost" id="mergeBtn">Merge into one animation</button>
+    <button class="btn main" id="saveBtn">Save</button>
+  </footer>
+</div>
+
+<div id="fsview"><canvas id="fscv"></canvas><div id="fsname"></div>
+  <div id="fsbar">
+    <button class="ib" id="fsPrev" aria-label="Previous animation"><svg viewBox="0 0 24 24"><path d="M6 5h2v14H6zM20 5v14L9 12z"/></svg></button>
+    <button class="ib big" id="fsPlay" aria-label="Play/pause"><svg viewBox="0 0 24 24"><path id="fsPlayIcon" d="M7 4l13 8-13 8z"/></svg></button>
+    <button class="ib" id="fsNext" aria-label="Next animation"><svg viewBox="0 0 24 24"><path d="M16 5h2v14h-2zM4 5v14l11-7z"/></svg></button>
+    <button class="ib" id="fsExit" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6.4 5 12 10.6 17.6 5 19 6.4 13.4 12 19 17.6 17.6 19 12 13.4 6.4 19 5 17.6 10.6 12 5 6.4z"/></svg></button>
+  </div>
+</div>
+
+<dialog id="dlg"><h3 id="dlgTitle"></h3><div id="dlgBody"></div><div class="actions"><button class="btn ghost" id="dlgNo">Cancel</button><button class="btn main" id="dlgYes">OK</button></div></dialog>
+<input type="file" id="fileIn" multiple hidden>
+<div id="toast" hidden></div>
+<script>__FORMATS__</script>
+<script>__DMD__</script>
+<script>__APP__</script>
+</body>
+</html>
